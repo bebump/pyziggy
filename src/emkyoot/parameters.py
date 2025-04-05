@@ -161,6 +161,8 @@ class NumericParameter(Broadcaster):
 
 class SettableNumericParameter(NumericParameter):
     def set(self, value: int) -> None:
+        value = min(self._max_value, max(self._min_value, value))
+
         if value != self.get():
             self._requested_value = min(self._max_value, max(self._min_value, value))
             self._requested_timestamp = time.perf_counter()
