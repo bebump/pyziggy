@@ -105,6 +105,10 @@ class NumericParameter(Broadcaster):
         return self._requested_value
 
     @final
+    def get_normalised(self) -> float:
+        return (self.get() - self._min_value) / (self._max_value - self._min_value)
+
+    @final
     def get_property_name(self):
         return self._property
 
@@ -163,6 +167,17 @@ class SettableNumericParameter(NumericParameter):
             self._should_send_to_device = True
             self._should_call_listeners = True
             self._wants_to_call_listeners_broadcaster._call_listeners()
+
+    def set_normalised(self, value: float) -> None:
+        self.set(
+            int(round(value * (self._max_value - self._min_value) + self._min_value))
+        )
+
+    def add(self, value: int) -> None:
+        self.set(self.get() + value)
+
+    def add_normalised(self, value: float) -> None:
+        self.set_normalised(self.get_normalised() + value)
 
 
 class QueryableNumericParameter(NumericParameter):
