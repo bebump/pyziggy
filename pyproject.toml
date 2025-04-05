@@ -1,0 +1,31 @@
+[project]
+name = "emkyoot"
+version = "0.1.0"
+authors = [
+  { name="Attila Szarvas", email="attila.szarvas@gmail.com" },
+]
+description = "A small example package"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "paho-mqtt==2.1.0",
+    "toml==0.10.2",
+    "types-toml==0.10.8.20240310",
+    "mypy==1.15.0",
+    "Flask==3.1.0",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = {file = "LICENSE.md"}
+
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+emkyoot = "emkyoot.cli:main"
+
+[tool.setuptools.package-data]
+emkyoot = ["py.typed"]
