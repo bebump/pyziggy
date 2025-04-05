@@ -16,6 +16,7 @@
 
 import threading
 from abc import abstractmethod
+from threading import Timer
 from typing import Callable, Dict, Any, final
 
 
@@ -116,3 +117,32 @@ class AsyncUpdater:
 
 
 message_loop = MessageLoop()
+
+
+class MessageLoopTimer:
+    def __init__(self, callback):
+        self._callback = callback
+        self._timer = Timer(1, self._timer_callback)
+        self._should_stop = False
+        self._duration: float = 0
+
+    def start(self, duration: float):
+        if self._timer is not None:
+            self._timer.cancel()
+
+        self._should_stop = False
+        self._duration = duration
+        self._timer = Timer(duration, self._timer_callback)
+        self._timer.start()
+
+    def stop(self):
+        self._should_stop = True
+        self._timer.cancel()
+
+    def _message_callback(self):
+        if not self._should_stop:
+            self._callback(self)
+            self.start(self._duration)
+
+    def _timer_callback(self):
+        message_loop.post_message(self._message_callback)

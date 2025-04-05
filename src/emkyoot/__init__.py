@@ -18,5 +18,5 @@ from . import mqtt_client as mqtt_client
 from . import parameters as parameters
 from . import devices_client as devices_client
 from .quicklaunch import quicklaunch, EmkyootConfig
-from .message_loop import message_loop
+from . import message_loop
 from .cli import main as emkyoot
