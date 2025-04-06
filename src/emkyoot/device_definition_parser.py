@@ -61,6 +61,25 @@ class NumericParameterDefinition(ParameterBaseDefinition):
             return None
 
 
+class BinaryParameterDefinition(NumericParameterDefinition):
+    def __init__(self, property: str, access_type: int):
+        super().__init__(property, access_type, 0, 1)
+
+    def __repr__(self):
+        return f"BinaryParameterDefinition({self.property})"
+
+    @staticmethod
+    def extract(feature: Dict[str, Any]):
+        try:
+            if feature["type"] != "binary":
+                return None
+
+            if feature["value_off"] == False and feature["value_on"] == True:
+                return BinaryParameterDefinition(feature["property"], feature["access"])
+        except:
+            return None
+
+
 class ToggleParameterDefinition(NumericParameterDefinition):
     def __init__(self, property: str, access_type: int):
         super().__init__(property, access_type, 0, 1)
@@ -113,6 +132,7 @@ class EnumParameterDefinition(NumericParameterDefinition):
 
 parameter_type_definitions = [
     NumericParameterDefinition,
+    BinaryParameterDefinition,
     ToggleParameterDefinition,
     EnumParameterDefinition,
 ]
@@ -122,7 +142,7 @@ def extract_parameter(
     node,
 ) -> Optional[
     Union[
-        NumericParameterDefinition, ToggleParameterDefinition, EnumParameterDefinition
+        NumericParameterDefinition, BinaryParameterDefinition, ToggleParameterDefinition, EnumParameterDefinition
     ]
 ]:
     for extractor in parameter_type_definitions:

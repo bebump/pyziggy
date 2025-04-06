@@ -194,6 +194,31 @@ class SettableAndQueryableNumericParameter(
     pass
 
 
+class BinaryParameter(NumericParameter):
+    def __init__(self, property: str):
+        super().__init__(property, 0, 1)
+
+    def _transform_internal_to_mqtt_value(self, value: float) -> Any:
+        return True if value == 1 else False
+
+    def _transform_mqtt_to_internal_value(self, value: Any) -> float:
+        return 1 if value == True else 0
+
+
+class QueryableBinaryParameter(BinaryParameter, QueryableNumericParameter):
+    pass
+
+
+class SettableBinaryParameter(BinaryParameter, SettableNumericParameter):
+    pass
+
+
+class SettableAndQueryableBinaryParameter(
+    BinaryParameter, SettableAndQueryableNumericParameter
+):
+    pass
+
+
 class ToggleParameter(NumericParameter):
     def __init__(self, property: str):
         super().__init__(property, 0, 1)

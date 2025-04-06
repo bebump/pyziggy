@@ -110,7 +110,10 @@ class MqttClient:
             member._on_connect(MqttClientPublisher(self, topic))
 
     def _on_message_message_thread(self, client, userdata, msg):
+        logger.debug(f'RECEIVE "{msg.topic}"\n{json.loads(msg.payload)}')
+
         if msg.topic in self._dispatch.keys():
+            logger.debug(f'DISPATCH to {msg.topic} handler\n')
             self._dispatch[msg.topic]._on_message(json.loads(msg.payload))
 
     # ==========================================================================

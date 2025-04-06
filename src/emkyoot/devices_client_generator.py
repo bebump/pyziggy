@@ -23,6 +23,7 @@ from .device_definition_parser import (
     DeviceDefinition,
     EnumParameterDefinition,
     ParameterBaseDefinition,
+    BinaryParameterDefinition,
     ToggleParameterDefinition,
 )
 from .message_loop import message_loop
@@ -167,6 +168,20 @@ def generate_parameter_member(parameter: ParameterBaseDefinition):
 
         return f"""        self.{parameter.property} = {stuff_stuff.get_typename_for_parameter_for(enum_name)}("{parameter.property}", [e.value for e in {enum_name}])"""
 
+    if isinstance(parameter, BinaryParameterDefinition):
+        access_type = parameter.access_type
+
+        if access_type.is_settable():
+            if access_type.is_queryable():
+                return f"""        self.{parameter.property} = SettableAndQueryableBinaryParameter("{parameter.property}")"""
+            else:
+                return f"""        self.{parameter.property} = SettableBinaryParameter("{parameter.property}")"""
+        else:
+            if access_type.is_queryable():
+                return f"""        self.{parameter.property} = QueryableBinaryParameter("{parameter.property}")"""
+
+        return f"""        self.{parameter.property} = BinaryParameter("{parameter.property}")"""
+
     if isinstance(parameter, ToggleParameterDefinition):
         access_type = parameter.access_type
 
@@ -254,11 +269,19 @@ from typing import List
 from emkyoot.devices_client import Device, DevicesClient
 from emkyoot.parameters import (
     NumericParameter,
+    QueryableNumericParameter,
+    SettableNumericParameter,
+    SettableAndQueryableNumericParameter,
     EnumParameter,
     SettableEnumParameter,
-    QueryableNumericParameter,
+    BinaryParameter,
+    QueryableBinaryParameter,
+    SettableBinaryParameter,
+    SettableAndQueryableBinaryParameter,
+    ToggleParameter,
+    QueryableToggleParameter,
+    SettableToggleParameter,
     SettableAndQueryableToggleParameter,
-    SettableAndQueryableNumericParameter,
     int_to_enum,
 )
 
