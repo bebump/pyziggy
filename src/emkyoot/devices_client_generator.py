@@ -278,8 +278,8 @@ from emkyoot.parameters import (
 """
 
         devices_code = """class AvailableDevices(DevicesClient):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, no_query: bool = False):
+        super().__init__(no_query)
 """
 
         for device in payload:

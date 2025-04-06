@@ -19,6 +19,8 @@ from __future__ import annotations
 import time
 from typing import final, override, Dict, Any, List
 
+from emkyoot.parameters import Broadcaster
+
 from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber
 from .parameters import NumericParameter, QueryableNumericParameter
@@ -98,11 +100,10 @@ class Device(MqttSubscriber, AsyncUpdater):
 
 
 class DevicesClient(MqttClient):
-    clients: List[DevicesClient] = []
-
-    def __init__(self):
+    def __init__(self, no_query: bool = False):
         super().__init__()
-        DevicesClient.clients.append(self)
+        self._no_query = no_query
+        self.on_connect = Broadcaster()
 
     @override
     def _on_connect_message_thread(
@@ -112,11 +113,14 @@ class DevicesClient(MqttClient):
             client, userdata, flags, reason_code, properties
         )
 
-        for key, device in vars(self).items():
-            if not isinstance(device, Device):
-                continue
+        if not self._no_query:
+            for key, device in vars(self).items():
+                if not isinstance(device, Device):
+                    continue
 
-            device._query_queryable_parameters()
+                device._query_queryable_parameters()
+
+        self.on_connect._call_listeners()
 
     @override
     def _on_message_message_thread(self, client, userdata, msg):
