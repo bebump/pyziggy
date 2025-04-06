@@ -66,16 +66,16 @@ class AnyBroadcaster:
 
 
 class NumericParameter(Broadcaster):
-    def __init__(self, property: str, min_value: int, max_value: int):
+    def __init__(self, property: str, min_value: float, max_value: float):
         super().__init__()
         self._report_delay_tolerance: float = 1.0
         self._property = property
-        self._requested_value: int = 0
+        self._requested_value: float = 0
         self._requested_timestamp: float = 0
-        self._reported_value: int = 0
+        self._reported_value: float = 0
         self._reported_timestamp: float = 0
-        self._min_value: int = min_value
-        self._max_value: int = max_value
+        self._min_value: float = min_value
+        self._max_value: float = max_value
         self._should_call_listeners = False
         self._wants_to_call_listeners_broadcaster = Broadcaster()
         self._wants_to_query_device_boradcaster = Broadcaster()
@@ -98,7 +98,7 @@ class NumericParameter(Broadcaster):
         )
 
     @final
-    def get(self) -> int:
+    def get(self) -> float:
         if self._reported_value_is_probably_up_to_date():
             return self._reported_value
 
@@ -147,10 +147,10 @@ class NumericParameter(Broadcaster):
 
         return False
 
-    def _transform_internal_to_mqtt_value(self, value: int) -> Any:
+    def _transform_internal_to_mqtt_value(self, value: float) -> Any:
         return value
 
-    def _transform_mqtt_to_internal_value(self, value: Any) -> int:
+    def _transform_mqtt_to_internal_value(self, value: Any) -> float:
         return value
 
     def _call_listeners_if_necessary(self):
@@ -160,7 +160,7 @@ class NumericParameter(Broadcaster):
 
 
 class SettableNumericParameter(NumericParameter):
-    def set(self, value: int) -> None:
+    def set(self, value: float) -> None:
         value = min(self._max_value, max(self._min_value, value))
 
         if value != self.get():
@@ -172,10 +172,10 @@ class SettableNumericParameter(NumericParameter):
 
     def set_normalised(self, value: float) -> None:
         self.set(
-            int(round(value * (self._max_value - self._min_value) + self._min_value))
+            float(round(value * (self._max_value - self._min_value) + self._min_value))
         )
 
-    def add(self, value: int) -> None:
+    def add(self, value: float) -> None:
         self.set(self.get() + value)
 
     def add_normalised(self, value: float) -> None:
@@ -198,10 +198,10 @@ class ToggleParameter(NumericParameter):
     def __init__(self, property: str):
         super().__init__(property, 0, 1)
 
-    def _transform_internal_to_mqtt_value(self, value: int) -> Any:
+    def _transform_internal_to_mqtt_value(self, value: float) -> Any:
         return "ON" if value == 1 else "OFF"
 
-    def _transform_mqtt_to_internal_value(self, value: Any) -> int:
+    def _transform_mqtt_to_internal_value(self, value: Any) -> float:
         return 1 if value == "ON" else 0
 
 
@@ -224,10 +224,10 @@ class EnumParameter(NumericParameter):
         super().__init__(property, 0, len(enum_values))
         self._enum_values = enum_values
 
-    def _transform_internal_to_mqtt_value(self, value: int) -> Any:
-        return self._enum_values[value]
+    def _transform_internal_to_mqtt_value(self, value: float) -> Any:
+        return self._enum_values[int(value)]
 
-    def _transform_mqtt_to_internal_value(self, value: Any) -> int:
+    def _transform_mqtt_to_internal_value(self, value: Any) -> float:
         for i in range(0, len(self._enum_values)):
             if self._enum_values[i] == value:
                 return i

@@ -139,7 +139,7 @@ class StuffStuff:
             code += f"        self.enum_type = {enum}\n\n"
 
             code += f"    def get_enum_value(self) -> {enum}:\n"
-            code += f"        return int_to_enum({enum}, self.get())" "\n\n"
+            code += f"        return int_to_enum({enum}, int(self.get()))" "\n\n"
 
         settable_enums = list(self.enum_names_for_settable)
         settable_enums.sort()
