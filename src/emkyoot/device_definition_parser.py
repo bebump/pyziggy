@@ -190,7 +190,7 @@ class DeviceDefinition:
         parameters: List[ParameterBaseDefinition] = []
 
         for item in exposes_in_device_definition:
-            if item.get("type") == "light":
+            if item.get("type") == "light" or item.get("type") == "switch":
                 features = item.get("features")
 
                 if features is not None:
