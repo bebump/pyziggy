@@ -29,19 +29,6 @@ from .message_loop import message_loop
 from .mqtt_client import MqttClient, MqttSubscriber
 
 
-# Interprets the provided path constituents relative to the location of this
-# script, and returns an absolute Path to the resulting location.
-#
-# E.g. rel_to_py(".") returns an absolute path to the directory containing this
-# script.
-def rel_to_py(*paths) -> Path:
-    return Path(
-        os.path.realpath(
-            os.path.join(os.path.realpath(os.path.dirname(__file__)), *paths)
-        )
-    )
-
-
 class StrEnumValuesStorage:
     def __init__(self, enum_values: List[str]):
         self.enum_values = enum_values.copy()
