@@ -54,8 +54,8 @@ class NumericParameterDefinition(ParameterBaseDefinition):
             return NumericParameterDefinition(
                 feature["property"],
                 feature["access"],
-                feature["value_min"],
-                feature["value_max"],
+                feature["value_min"] if "value_min" in feature else -(2**31),
+                feature["value_max"] if "value_max" in feature else 2**31 - 1,
             )
         except:
             return None
