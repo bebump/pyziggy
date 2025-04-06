@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import threading
 from abc import abstractmethod
 from threading import Timer
@@ -120,8 +122,8 @@ message_loop = MessageLoop()
 
 
 class MessageLoopTimer:
-    def __init__(self, callback):
-        self._callback = callback
+    def __init__(self, callback: Callable[[MessageLoopTimer], None]):
+        self._callback: Callable[[MessageLoopTimer], None] = callback
         self._timer = Timer(1, self._timer_callback)
         self._should_stop = False
         self._duration: float = 0
