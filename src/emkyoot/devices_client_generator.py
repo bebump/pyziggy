@@ -14,9 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
 from pathlib import Path
-from typing import List, Dict, Any, override
+from typing import List, Dict, Any, override, Tuple
 
 from .device_definition_parser import (
     NumericParameterDefinition,
@@ -215,9 +214,10 @@ def get_device_class_name_base(device: DeviceDefinition) -> str:
     if device.vendor == "Philips" and device.model_id == "RDM002":
         return "PhilipsTapDialSwitch"
 
-    for param in device.parameters:
-        if param.property == "brightness":
-            return "Light"
+    properties = {param.property for param in device.parameters}
+
+    if "brightness" in properties and "state" in properties:
+        return f"DimmableLight{sanitise_type_name(device.vendor)}_{sanitise_type_name(device.model_id)}"
 
     return f"{sanitise_type_name(device.vendor)}_{sanitise_type_name(device.model_id)}"
 
@@ -225,7 +225,33 @@ def get_device_class_name_base(device: DeviceDefinition) -> str:
 def generate_device(device: DeviceDefinition):
     member_entries = []
 
-    for parameter in device.parameters:
+    properties = {param.property: param for param in device.parameters}
+
+    dimmable_light: Tuple[float, float] | None = None
+
+    if "state" in properties:
+        state_property = properties["state"]
+
+        if (
+            isinstance(state_property, ToggleParameterDefinition)
+            and state_property.access_type.is_settable()
+        ):
+            if "brightness" in properties:
+                brightness_property = properties["brightness"]
+
+                if (
+                    isinstance(brightness_property, NumericParameterDefinition)
+                    and brightness_property.access_type.is_settable()
+                ):
+                    dimmable_light = (
+                        brightness_property.value_min,
+                        brightness_property.value_max,
+                    )
+
+                    del properties["brightness"]
+                    del properties["state"]
+
+    for _, parameter in properties.items():
         p = generate_parameter_member(parameter)
 
         if p is not None:
@@ -233,14 +259,22 @@ def generate_device(device: DeviceDefinition):
 
     class_name = get_device_class_name_base(device)
 
-    device_template = """class $class_name(Device):
+    device_template = ""
+
+    if dimmable_light is not None:
+        device_template += f"""class $class_name(Device, DimmableLight):
+    def __init__(self, name):
+        DimmableLight.__init__(self, {dimmable_light[0]}, {dimmable_light[1]})
+"""
+    else:
+        device_template += """class $class_name(Device):
     def __init__(self, name):
 """
 
     if member_entries:
         device_template += "\n".join(member_entries) + "\n"
 
-    device_template += "        super().__init__(name)\n"
+    device_template += "        Device.__init__(self, name)\n"
 
     return class_stuff.get_class_name(device_template, class_name)
 
@@ -248,6 +282,7 @@ def generate_device(device: DeviceDefinition):
 def sanitise_type_name(s: str):
     s = s.replace(" ", "_")
     s = s.replace("-", "_")
+    s = s.replace("/", "_")
     return s
 
 
@@ -266,7 +301,7 @@ class Z2MDevicesParser(MqttSubscriber):
 
 from typing import List
 
-from emkyoot.devices_client import Device, DevicesClient
+from emkyoot.devices_client import Device, DevicesClient, DimmableLight
 from emkyoot.parameters import (
     NumericParameter,
     QueryableNumericParameter,

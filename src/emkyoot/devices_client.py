@@ -17,13 +17,18 @@
 from __future__ import annotations
 
 import time
-from typing import final, override, Dict, Any, List
+from typing import final, override, Dict, Any
 
 from emkyoot.parameters import Broadcaster
 
 from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber
-from .parameters import NumericParameter, QueryableNumericParameter
+from .parameters import (
+    NumericParameter,
+    QueryableNumericParameter,
+    SettableAndQueryableNumericParameter,
+    SettableAndQueryableToggleParameter,
+)
 
 
 class Device(MqttSubscriber, AsyncUpdater):
@@ -97,6 +102,14 @@ class Device(MqttSubscriber, AsyncUpdater):
 
         if mqtt_query:
             self.query(mqtt_query)
+
+
+class DimmableLight:
+    def __init__(self, brightness_min: float, brightness_max: float):
+        self.brightness = SettableAndQueryableNumericParameter(
+            "brightness", brightness_min, brightness_max
+        )
+        self.state = SettableAndQueryableToggleParameter("state")
 
 
 class DevicesClient(MqttClient):
