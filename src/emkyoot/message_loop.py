@@ -66,13 +66,6 @@ class MessageLoop(metaclass=Singleton):
             m = self._messages.pop(0)
             m()
 
-    def rum(self):
-        with self._condition:
-            self._loop_should_quit = False
-            while not self._loop_should_quit:
-                self._condition.wait()
-                self._process_messages()
-
     def run(self):
         self._loop_should_quit = False
         messages = []

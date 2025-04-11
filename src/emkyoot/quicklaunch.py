@@ -99,7 +99,7 @@ def regenerate_device_definitions(available_devices_path: Path, config: EmkyootC
     generator = DevicesGenerator(available_devices_path)
     generator.connect(config.host, config.port, config.keepalive, config.base_topic)
 
-    # The generator quits on its own when it's finished with its job
+    # The generator quits on its own when its job is finished
     generator.loop_forever()
 
 
