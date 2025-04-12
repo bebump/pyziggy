@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import time
-from typing import final, override, Dict, Any
+from typing import final, override, Dict, Any, List
 
 from emkyoot.parameters import Broadcaster
 
@@ -36,12 +36,25 @@ class Device(MqttSubscriber, AsyncUpdater):
         MqttSubscriber.__init__(self, property_name)
         self._numeric_parameters: Dict[str, NumericParameter] = {}
         self._register_parameter_members()
+        self._sync_parameters_requesting_callback: List[NumericParameter] = []
+        self._in_on_message = False
 
     @override
     def _on_message(self, payload: Dict[Any, Any]):
+        self._in_on_message = True
+
         for k, v in payload.items():
             if k in self._numeric_parameters.keys():
                 self._numeric_parameters[k]._set_reported_value(v)
+
+        self._in_on_message = False
+        self._execute_synchronous_parameter_callbacks()
+
+    def _execute_synchronous_parameter_callbacks(self):
+        for param in self._sync_parameters_requesting_callback:
+            param._call_listeners()
+
+        self._sync_parameters_requesting_callback.clear()
 
     @final
     def _query_queryable_parameters(self):
@@ -62,6 +75,9 @@ class Device(MqttSubscriber, AsyncUpdater):
                 member._wants_to_query_device_boradcaster.add_listener(
                     self._parameter_changed
                 )
+                member._wants_to_call_listeners_synchronously_broadcaster.add_listener(
+                    self._synchronous_parameter_changed
+                )
 
     # @internal
     @override
@@ -81,6 +97,14 @@ class Device(MqttSubscriber, AsyncUpdater):
     @final
     def _parameter_changed(self) -> None:
         self._trigger_async_update()
+
+    # @internal
+    @final
+    def _synchronous_parameter_changed(self, parameter: NumericParameter) -> None:
+        self._sync_parameters_requesting_callback.append(parameter)
+
+        if not self._in_on_message:
+            self._execute_synchronous_parameter_callbacks()
 
     # @internal
     def _publish_changes(self):

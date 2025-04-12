@@ -78,6 +78,7 @@ class NumericParameter(Broadcaster):
         self._max_value: float = max_value
         self._should_call_listeners = False
         self._wants_to_call_listeners_broadcaster = Broadcaster()
+        self._wants_to_call_listeners_synchronously_broadcaster = AnyBroadcaster()
         self._wants_to_query_device_boradcaster = Broadcaster()
 
         # Setting this to True is only allowed for gettable devices.
@@ -87,6 +88,11 @@ class NumericParameter(Broadcaster):
         # Setting this to True is only allowed for settable devices.
         # See zigbee2mqtt access property
         self._should_send_to_device: bool = False
+
+        self._use_synchronous_callbacks: bool = False
+
+    def set_use_synchronous_broadcast(self, value: bool):
+        self._use_synchronous_callbacks = value
 
     def _reported_value_is_probably_up_to_date(self):
         if self._should_send_to_device:
@@ -123,8 +129,13 @@ class NumericParameter(Broadcaster):
             self._reported_value_is_probably_up_to_date()
             and new_reported_timestamp > old_reported_timestamp
         ):
-            self._should_call_listeners = True
-            self._wants_to_call_listeners_broadcaster._call_listeners()
+            if self._use_synchronous_callbacks:
+                self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
+                    lambda callback: callback(self)
+                )
+            else:
+                self._should_call_listeners = True
+                self._wants_to_call_listeners_broadcaster._call_listeners()
 
         self._reported_value = new_value
         self._reported_timestamp = new_reported_timestamp
@@ -168,7 +179,13 @@ class SettableNumericParameter(NumericParameter):
             self._requested_timestamp = time.perf_counter()
             self._should_send_to_device = True
             self._should_call_listeners = True
-            self._wants_to_call_listeners_broadcaster._call_listeners()
+
+            if self._use_synchronous_callbacks:
+                self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
+                    self
+                )
+            else:
+                self._wants_to_call_listeners_broadcaster._call_listeners()
 
     def set_normalised(self, value: float) -> None:
         self.set(
