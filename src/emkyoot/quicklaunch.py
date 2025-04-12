@@ -123,7 +123,7 @@ def regenerate_available_devices(project_root: Path, config: EmkyootConfig):
 
 def run_mypy(
     python_script_path: Path,
-):
+) -> bool:
     env = os.environ.copy()
 
     # mypy bug: Errors aren't shown in imports when the PYTHONPATH is set. This isn't just true
@@ -139,8 +139,7 @@ def run_mypy(
         env=env,
     )
 
-    if result.returncode != 0:
-        exit(result.returncode)
+    return result.returncode == 0
 
 
 class ThreadedFlaskRunner:
@@ -231,7 +230,8 @@ def quicklaunch(
 
     if devices_client_module_path is not None:
         regenerate_available_devices(devices_client_module_path.parent, config)
-        run_mypy(devices_client_module_path)
+        if run_mypy(devices_client_module_path) == False:
+            exit(1)
 
     devices_client = (
         devices_client_param

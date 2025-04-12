@@ -128,19 +128,21 @@ class Device(MqttSubscriber, AsyncUpdater):
             self.query(mqtt_query)
 
 
-class DimmableLight:
-    def __init__(self, brightness_min: float, brightness_max: float):
-        self.brightness = SettableAndQueryableNumericParameter(
-            "brightness", brightness_min, brightness_max
-        )
-        self.state = SettableAndQueryableToggleParameter("state")
-
-
 class DevicesClient(MqttClient):
     def __init__(self, no_query: bool = False):
         super().__init__()
         self._no_query = no_query
         self.on_connect = Broadcaster()
+
+    @final
+    def get_devices(self) -> List[Device]:
+        devices = []
+
+        for key, device in vars(self).items():
+            if isinstance(device, Device):
+                devices.append(device)
+
+        return devices
 
     @override
     def _on_connect_message_thread(
