@@ -20,14 +20,11 @@ import time
 from typing import final, override, Dict, Any, List
 
 from emkyoot.parameters import Broadcaster
-
 from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber
 from .parameters import (
     NumericParameter,
     QueryableNumericParameter,
-    SettableAndQueryableNumericParameter,
-    SettableAndQueryableToggleParameter,
 )
 
 

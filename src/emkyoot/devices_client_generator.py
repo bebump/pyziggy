@@ -520,7 +520,7 @@ class Specialization:
             )
         ]
 
-        with ScopedCounter() as counter:
+        with ScopedCounter() as _:
             params = ["self"]
             params.extend(get_function_param_names(self.reqs))
 
@@ -530,7 +530,7 @@ class Specialization:
                 )
             )
 
-        with ScopedCounter() as counter:
+        with ScopedCounter() as _:
             for req in self.reqs:
                 code.extend(req.get_init_code())
 
@@ -604,13 +604,6 @@ def get_parameters_string_for_constructor(x):
 
     if isinstance(x, NumericParameterDefinition):
         return f"{x.value_min}, {x.value_max}"
-
-
-def get_args_string_for_req(x: Specialization | ParameterRequirement):
-    if isinstance(x, NumericParameterDefinition):
-        return f"min{ScopedCounter.get()}", f"max{ScopedCounter.get()}"
-
-    return ""
 
 
 def collect_specialisation_classes_code(specializations, classes_code: Dict[str, None]):
