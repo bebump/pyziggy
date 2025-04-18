@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import List, Tuple, Callable
 from bisect import bisect_left
 
-from emkyoot_autogenerate.available_devices import DimmableLight
+from emkyoot.device_bases import DimmableLight
 from emkyoot.message_loop import MessageLoopTimer
 
 

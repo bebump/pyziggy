@@ -94,7 +94,7 @@ class EmkyootConfig:
 
 
 def regenerate_device_definitions(available_devices_path: Path, config: EmkyootConfig):
-    from .devices_client_generator import DevicesGenerator
+    from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
     generator.connect(config.host, config.port, config.keepalive, config.base_topic)

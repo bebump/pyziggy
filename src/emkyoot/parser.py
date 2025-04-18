@@ -18,6 +18,10 @@ from typing import List, Union, Dict, Any, Optional
 
 
 class ParameterAccessType:
+    QUERYABLE = 0b100
+    SETTABLE = 0b10
+    EXISTS = 0b1
+
     def __init__(self, flags: int):
         self._flags = flags
 
@@ -29,18 +33,42 @@ class ParameterAccessType:
         """Returns true if the parameter can be set with the /set command"""
         return self._flags & 0b10 != 0
 
+    def __eq__(self, other):
+        if isinstance(other, ParameterAccessType):
+            return self._flags == other._flags
+        return False
+
 
 class ParameterBaseDefinition:
+    """
+    All members of this class' subclasses can be set to None signalling a
+    "don't care" value. Properties of this base class, property and access_type
+    must be defined though.
+
+    The is_match_for() comparison function can then be used to compare instances of
+    ParameterBaseDefinition and such None members will be considered equal with any
+    other value.
+    """
     def __init__(self, property: str, access_type: int):
         self.property: str = property
-        self.access_type = ParameterAccessType(access_type)
+        self.access_type: ParameterAccessType = ParameterAccessType(access_type)
 
+    def is_match_for(self, other):
+        if type(self) != type(other):
+            return False
+
+        other_vars = vars(other)
+        for key, member in vars(self).items():
+            if member is not None and other_vars[key] is not None and member != other_vars[key]:
+                return False
+
+        return True
 
 class NumericParameterDefinition(ParameterBaseDefinition):
-    def __init__(self, property: str, access_type: int, value_min: int, value_max: int):
+    def __init__(self, property: str, access_type: int, value_min: int | None, value_max: int | None):
         super().__init__(property, access_type)
-        self.value_min = value_min
-        self.value_max = value_max
+        self.value_min: int | None = value_min
+        self.value_max: int | None = value_max
 
     def __repr__(self):
         return f"NumericParameterDefinition({self.property}, {self.value_min}, {self.value_max})"
@@ -107,14 +135,9 @@ class StringEnumDefinition:
 
 
 class EnumParameterDefinition(NumericParameterDefinition):
-    def __init__(self, property: str, access_type: int, enumeration: List[str]):
-        super().__init__(property, access_type, 0, len(enumeration))
-        self.enum_definition: StringEnumDefinition = StringEnumDefinition(enumeration)
-
-    def __repr__(self):
-        return (
-            f"EnumParameterDefinition({self.property}, {self.enum_definition.values})"
-        )
+    def __init__(self, property: str, access_type: int, enumeration: List[str] | None):
+        super().__init__(property, access_type, 0, len(enumeration) if enumeration is not None else None)
+        self.enum_definition: StringEnumDefinition | None = StringEnumDefinition(enumeration) if enumeration is not None else None
 
     @staticmethod
     def extract(feature: Dict[str, Any]):

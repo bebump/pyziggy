@@ -4,7 +4,8 @@ import shutil
 import unittest
 from pathlib import Path
 
-from emkyoot.devices_client_generator import generate_devices_client
+from emkyoot.generator import generate_device_bases
+from emkyoot.generator import generate_devices_client
 from emkyoot.quicklaunch import run_mypy
 
 
@@ -23,6 +24,8 @@ def rel_to_py(*paths) -> Path:
 
 class TestStringMethods(unittest.TestCase):
     def test_generate_devices_client(self):
+        generate_device_bases()
+
         def load_devices_json():
             with open(rel_to_py("resources", "devices.json"), "r") as file:
                 return json.load(file)

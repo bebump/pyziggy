@@ -182,7 +182,7 @@ class SettableNumericParameter(NumericParameter):
 
             if self._use_synchronous_callbacks:
                 self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
-                    self
+                    lambda listener: listener(self)
                 )
             else:
                 self._wants_to_call_listeners_broadcaster._call_listeners()
