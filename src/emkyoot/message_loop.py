@@ -137,6 +137,8 @@ class MessageLoopTimer:
     def _message_callback(self):
         if not self._should_stop:
             self._callback(self)
+
+        if not self._should_stop:
             self.start(self._duration)
 
     def _timer_callback(self):
