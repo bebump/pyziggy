@@ -17,8 +17,9 @@
 from __future__ import annotations
 
 import time
+from abc import abstractmethod
 from enum import Enum
-from typing import Dict, Union, List, Any, final, Callable
+from typing import Dict, Union, List, Any, final, Callable, override
 from typing import Type, TypeVar
 
 
@@ -65,21 +66,14 @@ class AnyBroadcaster:
         del self._listeners[listener_id]
 
 
-class NumericParameter(Broadcaster):
-    def __init__(self, property: str, min_value: float, max_value: float):
+class ParameterBase(Broadcaster):
+    def __init__(self, property: str):
         super().__init__()
-        self._report_delay_tolerance: float = 1.0
-        self._property = property
-        self._requested_value: float = 0
-        self._requested_timestamp: float = 0
-        self._reported_value: float = 0
-        self._reported_timestamp: float = 0
-        self._min_value: float = min_value
-        self._max_value: float = max_value
-        self._should_call_listeners = False
+        self._property: str = property
         self._wants_to_call_listeners_broadcaster = Broadcaster()
         self._wants_to_call_listeners_synchronously_broadcaster = AnyBroadcaster()
         self._wants_to_query_device_boradcaster = Broadcaster()
+        self._should_call_listeners = False
 
         # Setting this to True is only allowed for gettable devices.
         # See zigbee2mqtt access property
@@ -90,6 +84,45 @@ class NumericParameter(Broadcaster):
         self._should_send_to_device: bool = False
 
         self._use_synchronous_callbacks: bool = False
+
+    @final
+    def _query_device(self):
+        self._should_query_device = True
+        self._wants_to_query_device_boradcaster._call_listeners()
+
+    @final
+    def get_property_name(self):
+        return self._property
+
+    @abstractmethod
+    def _set_reported_value(self, value: Any) -> None:
+        pass
+
+    @abstractmethod
+    def _append_dictionary_sent_to_device(
+        self, out_dict: Dict[str, Union[bool, int, str]]
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def _should_device_be_queryied(self) -> bool:
+        pass
+
+    @abstractmethod
+    def _call_listeners_if_necessary(self):
+        pass
+
+
+class NumericParameter(ParameterBase):
+    def __init__(self, property: str, min_value: float, max_value: float):
+        super().__init__(property)
+        self._report_delay_tolerance: float = 1.0
+        self._requested_value: float = 0
+        self._requested_timestamp: float = 0
+        self._reported_value: float = 0
+        self._reported_timestamp: float = 0
+        self._min_value: float = min_value
+        self._max_value: float = max_value
 
     def set_use_synchronous_broadcast(self, value: bool):
         self._use_synchronous_callbacks = value
@@ -115,10 +148,7 @@ class NumericParameter(Broadcaster):
         return (self.get() - self._min_value) / (self._max_value - self._min_value)
 
     @final
-    def get_property_name(self):
-        return self._property
-
-    @final
+    @override
     def _set_reported_value(self, value: Any) -> None:
         old_value = self.get()
         new_value = self._transform_mqtt_to_internal_value(value)
@@ -141,6 +171,7 @@ class NumericParameter(Broadcaster):
         self._reported_timestamp = new_reported_timestamp
 
     @final
+    @override
     def _append_dictionary_sent_to_device(
         self, out_dict: Dict[str, Union[bool, int, str]]
     ) -> None:
@@ -151,6 +182,7 @@ class NumericParameter(Broadcaster):
         self._should_send_to_device = False
 
     @final
+    @override
     def _should_device_be_queryied(self) -> bool:
         if self._should_query_device:
             self._should_query_device = False
@@ -158,16 +190,18 @@ class NumericParameter(Broadcaster):
 
         return False
 
+    @final
+    @override
+    def _call_listeners_if_necessary(self):
+        if self._should_call_listeners:
+            self._should_call_listeners = False
+            self._call_listeners()
+
     def _transform_internal_to_mqtt_value(self, value: float) -> Any:
         return value
 
     def _transform_mqtt_to_internal_value(self, value: Any) -> float:
         return value
-
-    def _call_listeners_if_necessary(self):
-        if self._should_call_listeners:
-            self._should_call_listeners = False
-            self._call_listeners()
 
 
 class SettableNumericParameter(NumericParameter):
@@ -201,8 +235,7 @@ class SettableNumericParameter(NumericParameter):
 
 class QueryableNumericParameter(NumericParameter):
     def query_device(self) -> None:
-        self._should_query_device = True
-        self._wants_to_query_device_boradcaster._call_listeners()
+        self._query_device()
 
 
 class SettableAndQueryableNumericParameter(
@@ -286,3 +319,68 @@ T = TypeVar("T", bound=Enum)
 
 def int_to_enum(enum_type: Type[T], index: int) -> T:
     return list(enum_type)[index]
+
+
+class CompositeParameter(ParameterBase):
+    def __init__(self, property: str):
+        super().__init__(property)
+        self._parameters: Dict[str, ParameterBase] = {}
+
+        self._hook_into_subparameters()
+
+    def _hook_into_subparameters(self):
+        for param in self._get_subparameters():
+            self._parameters[param.get_property_name()] = param
+
+            param._wants_to_call_listeners_broadcaster.add_listener(
+                lambda: self._wants_to_call_listeners_broadcaster._call_listeners()
+            )
+            param._wants_to_query_device_boradcaster.add_listener(
+                lambda: self._wants_to_query_device_boradcaster._call_listeners()
+            )
+            param._wants_to_call_listeners_synchronously_broadcaster.add_listener(
+                lambda _: self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
+                    lambda callback: callback(self)
+                )
+            )
+
+    def _get_subparameters(self):
+        return [
+            param for _, param in vars(self).items() if isinstance(param, ParameterBase)
+        ]
+
+    @final
+    @override
+    def _call_listeners_if_necessary(self):
+        for param in self._get_subparameters():
+            param._call_listeners_if_necessary()
+
+    @final
+    @override
+    def _append_dictionary_sent_to_device(self, out_dict) -> None:
+        sub_dict: Dict[str, Any] = {}
+
+        for param in self._get_subparameters():
+            param._append_dictionary_sent_to_device(sub_dict)
+
+        if sub_dict:
+            out_dict[self._property] = sub_dict
+
+    @final
+    @override
+    def _set_reported_value(self, value: Any) -> None:
+        for k, v in value.items():
+            if k in self._parameters:
+                self._parameters[k]._set_reported_value(v)
+
+    @final
+    @override
+    def _should_device_be_queryied(self) -> bool:
+        should_device_be_queryied = False
+
+        for param in self._get_subparameters():
+            should_device_be_queryied = (
+                should_device_be_queryied or param._should_device_be_queryied()
+            )
+
+        return should_device_be_queryied

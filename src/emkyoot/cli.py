@@ -33,8 +33,8 @@ def parent_exists(parser, arg):
             f"The directory '{path.parent.absolute()}' where the output should be written "
             f"does not exist!"
         )
-    else:
-        return path
+
+    return path
 
 
 def quicklaunch_cmd(args):
@@ -72,7 +72,7 @@ devices = AvailableDevices()"""
         with open(devices_client_module_path, "w") as f:
             f.write(module_code)
 
-    quicklaunch(devices_client_module_path, config)
+    quicklaunch(devices_client_module_path, config, args.skip_initial_query)
 
 
 def main(args: List[str] | None = None):
@@ -119,6 +119,7 @@ def main(args: List[str] | None = None):
         "For simple use-cases it should specifically instantiate an "
         "AvailableDevices(DevicesClient) object.",
     )
+    parser_quicklaunch.add_argument("--skip_initial_query", help="skips querying devices states on startup", action="store_true")
 
     parser_quicklaunch.set_defaults(func=quicklaunch_cmd)
     parsed_args = parser.parse_args(args)

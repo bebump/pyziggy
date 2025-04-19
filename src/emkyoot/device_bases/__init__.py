@@ -14,15 +14,15 @@ from emkyoot.parameters import (
 )
 
 class DimmableLight:
-    def __init__(self, min0, max1):
+    def __init__(self, arg0, arg1):
         self.state = SettableAndQueryableToggleParameter("state")
-        self.brightness = SettableAndQueryableNumericParameter("brightness", min0, max1)
+        self.brightness = SettableAndQueryableNumericParameter("brightness", arg0, arg1)
 
 
 class LightWithColorTemp(DimmableLight):
-    def __init__(self, min0, max1, min2, max3):
-        DimmableLight.__init__(self, min0, max1)
-        self.color_temp = SettableAndQueryableNumericParameter("color_temp", min2, max3)
+    def __init__(self, arg0, arg1, arg2, arg3):
+        DimmableLight.__init__(self, arg0, arg1)
+        self.color_temp = SettableAndQueryableNumericParameter("color_temp", arg2, arg3)
 
 
 __all__ = [

@@ -18,11 +18,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Dict, Any, override, Tuple
+from typing import List, Dict, Any, override
 
 from .code_line import CodeLine, CodeIndent
 from .device_bases.device_base_requirements import (
-    ParameterRequirement,
     BaseClassRequirement,
 )
 from .device_bases.device_base_rules import device_base_rules
@@ -35,6 +34,7 @@ from .parser import (
     ParameterBaseDefinition,
     BinaryParameterDefinition,
     ToggleParameterDefinition,
+    CompositeParameterDefinition,
 )
 
 
@@ -185,59 +185,9 @@ class EnumParameterGenerator:
                     CodeIndent.UNINDENT,
                 )
             )
-            code.append(CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT))
+            code.append(CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT))
 
         return code
-
-
-class ClassForImplementation:
-    """
-    Use this to deduplicate generated classes and give unique names to each.
-
-    This class gives you a unique name for a class implementation code. If you give it class code
-    it hasn't seen before, it gives you back a unique name for that class. It uses the provided
-    base name and extends it until it results in a unique name.
-
-    For class code it has already seen, it gives back the name that particular implementation got
-    the first time.
-    """
-
-    def __init__(self):
-        self.names: set[str] = set()
-        self.name_for_code: Dict[str, str] = {}
-        self.code_for_name: Dict[str, List[CodeLine]] = {}
-
-    def get_class_name(self, code_lines: List[CodeLine], name_base: str) -> str:
-        code = CodeLine.join("\n", code_lines)
-
-        if code not in self.name_for_code.keys():
-            name = name_base
-
-            i = 1
-            while True:
-                if name not in self.names:
-                    break
-
-                name = name_base + f"Variant{i}"
-                i += 1
-
-            self.names.add(name)
-            self.name_for_code[code] = name
-            self.code_for_name[name] = code_lines
-
-        return self.name_for_code[code]
-
-    def get_class_code(self, name_in: str) -> str:
-        for code, name in self.name_for_code.items():
-            if name == name_in:
-                return code.replace("$class_name", name)
-
-        return ""
-
-    def get_class_names_in_order(self):
-        ordered_names = [n for n in self.names]
-        ordered_names.sort()
-        return ordered_names
 
 
 class ScopedCounter:
@@ -260,263 +210,7 @@ class ScopedCounter:
         return False
 
 
-# ==============================================================================
-def get_function_param_names_for_param_type(parameter_type: type) -> List[str]:
-    if parameter_type == NumericParameterDefinition:
-        return [f"min{ScopedCounter.get()}", f"max{ScopedCounter.get()}"]
-
-    if parameter_type == ToggleParameterDefinition:
-        return []
-
-    return []
-
-
-def get_function_param_names(params: List[BaseClassRequirement | ParameterRequirement]):
-    names: List[str] = []
-
-    for param in params:
-        if isinstance(param, ParameterRequirement):
-            names.extend(get_function_param_names_for_param_type(type(param.parameter)))
-        elif isinstance(param, BaseClassRequirement):
-            names.extend(get_function_param_names(param.reqs))
-
-    return names
-
-
-def generate_parameter_param_names(parameter_type: type) -> List[str]:
-    if parameter_type == EnumParameterDefinition:
-        return [f"enum{ScopedCounter.get()}"]
-
-    if parameter_type == BinaryParameterDefinition:
-        return []
-
-    if parameter_type == ToggleParameterDefinition:
-        return []
-
-    assert parameter_type == NumericParameterDefinition
-    return [f"min{ScopedCounter.get()}", f"max{ScopedCounter.get()}"]
-
-
-def generate_parameter_param_values(
-    parameter: ParameterBaseDefinition, enum_class_generator: EnumClassGenerator
-) -> List[str]:
-    if isinstance(parameter, EnumParameterDefinition):
-        assert parameter.enum_definition is not None
-        enum_name = enum_class_generator.get_enum_class_name(
-            parameter.enum_definition.values
-        )
-        return [f"[e.value for e in {enum_name}]"]
-
-    if isinstance(parameter, BinaryParameterDefinition):
-        return []
-
-    if isinstance(parameter, ToggleParameterDefinition):
-        return []
-
-    assert isinstance(parameter, NumericParameterDefinition)
-    return [str(parameter.value_min), str(parameter.value_max)]
-
-
-def generate_parameter_member(
-    parameter: ParameterBaseDefinition,
-    parameter_substitutions: List[str],
-    enum_class_gen: EnumClassGenerator,
-    enum_param_gen: EnumParameterGenerator,
-) -> CodeLine:
-    def quoted(x):
-        return f'"{x}"'
-
-    if isinstance(parameter, EnumParameterDefinition):
-        access_type = parameter.access_type
-        assert parameter.enum_definition is not None
-        enum_name = enum_class_gen.get_enum_class_name(parameter.enum_definition.values)
-
-        if access_type.is_settable():
-            return CodeLine(
-                f"""self.{parameter.property} = {enum_param_gen.get_typename_for_settable_parameter_for(enum_name)}({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-            )
-
-        return CodeLine(
-            f"""self.{parameter.property} = {enum_param_gen.get_typename_for_parameter_for(enum_name)}({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-        )
-
-    if isinstance(parameter, BinaryParameterDefinition):
-        access_type = parameter.access_type
-
-        if access_type.is_settable():
-            if access_type.is_queryable():
-                return CodeLine(
-                    f"""self.{parameter.property} = SettableAndQueryableBinaryParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-            else:
-                return CodeLine(
-                    f"""self.{parameter.property} = SettableBinaryParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-        else:
-            if access_type.is_queryable():
-                return CodeLine(
-                    f"""self.{parameter.property} = QueryableBinaryParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-
-        return CodeLine(
-            f"""self.{parameter.property} = BinaryParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-        )
-
-    if isinstance(parameter, ToggleParameterDefinition):
-        access_type = parameter.access_type
-
-        if access_type.is_settable():
-            if access_type.is_queryable():
-                return CodeLine(
-                    f"""self.{parameter.property} = SettableAndQueryableToggleParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-            else:
-                return CodeLine(
-                    f"""self.{parameter.property} = SettableToggleParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-        else:
-            if access_type.is_queryable():
-                return CodeLine(
-                    f"""self.{parameter.property} = QueryableToggleParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-                )
-
-        return CodeLine(
-            f"""self.{parameter.property} = ToggleParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-        )
-
-    assert isinstance(parameter, NumericParameterDefinition)
-    access_type = parameter.access_type
-
-    if access_type.is_settable():
-        if access_type.is_queryable():
-            return CodeLine(
-                f"""self.{parameter.property} = SettableAndQueryableNumericParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-            )
-        else:
-            return CodeLine(
-                f"""self.{parameter.property} = SettableNumericParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-            )
-    else:
-        if access_type.is_queryable():
-            return CodeLine(
-                f"""self.{parameter.property} = QueryableNumericParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-            )
-
-    return CodeLine(
-        f"""self.{parameter.property} = NumericParameter({', '.join([quoted(parameter.property), *parameter_substitutions])})"""
-    )
-
-
-# ==============================================================================
-def get_class_code(
-    req: BaseClassRequirement,
-    enum_class_gen: EnumClassGenerator,
-    enum_param_gen: EnumParameterGenerator,
-) -> List[CodeLine]:
-    base_class_name = [
-        req.name for req in req.reqs if isinstance(req, BaseClassRequirement)
-    ]
-    bases_code = f"({', '.join(base_class_name)})" if base_class_name else ""
-
-    code: List[CodeLine] = [
-        CodeLine(
-            f"class {req.name}{bases_code}:",
-            CodeIndent.NONE,
-            CodeIndent.INDENT,
-        )
-    ]
-
-    with ScopedCounter() as _:
-        params = ["self"]
-        params.extend(get_function_param_names(req.reqs))
-
-        code.append(
-            CodeLine(
-                f"def __init__({', '.join(params)}):",
-                CodeIndent.NONE,
-                CodeIndent.INDENT,
-            )
-        )
-
-    with ScopedCounter() as _:
-        member_initalizers: List[CodeLine] = []
-
-        for r in req.reqs:
-            member_initalizers += get_init_code(r, enum_class_gen, enum_param_gen)
-
-    if not member_initalizers:
-        code += [CodeLine("pass", CodeIndent.NONE, CodeIndent.NONE)]
-
-    code += member_initalizers
-    code[-1].postindent = CodeIndent.UNINDENT2
-    code += [CodeLine("", CodeIndent.NONE, CodeIndent.NONE)] * 2
-
-    return code
-
-
-def get_init_code(
-    req: BaseClassRequirement | ParameterRequirement,
-    enum_class_gen: EnumClassGenerator,
-    enum_param_gen: EnumParameterGenerator,
-    function_param_provider=get_function_param_names,
-) -> List[CodeLine]:
-    def get_init_code_for_base_class(req: BaseClassRequirement):
-        code: List[CodeLine] = []
-
-        params = ["self"]
-        params.extend(function_param_provider(req.reqs))
-
-        code.append(
-            CodeLine(
-                f"{req.name}.__init__({', '.join(params)})",
-                CodeIndent.NONE,
-                CodeIndent.NONE,
-            )
-        )
-
-        return code
-
-    if isinstance(req, BaseClassRequirement):
-        return get_init_code_for_base_class(req)
-
-    def get_init_code_for_parameter(req: ParameterRequirement):
-        return [
-            generate_parameter_member(
-                req.parameter,
-                generate_parameter_param_names(type(req.parameter)),
-                enum_class_gen,
-                enum_param_gen,
-            )
-        ]
-
-    return get_init_code_for_parameter(req)
-
-
-def get_function_values_for_param(parameter: ParameterBaseDefinition) -> List[str]:
-    if isinstance(parameter, ToggleParameterDefinition):
-        return []
-
-    if isinstance(parameter, NumericParameterDefinition):
-        return [str(parameter.value_min), str(parameter.value_max)]
-
-    return []
-
-
-def get_function_param_values(
-    params: List[BaseClassRequirement | ParameterRequirement],
-):
-    values: List[str] = []
-
-    for param in params:
-        if isinstance(param, ParameterRequirement):
-            values.extend(get_function_values_for_param(param.parameter))
-        elif isinstance(param, BaseClassRequirement):
-            values.extend(get_function_param_values(param.reqs))
-
-    return values
-
-
-def sanitize_type_name(s: str) -> str:
+def sanitize_for_type_name(s: str) -> str:
     assert len(s) > 0
 
     alphanumeric_with_underscore = "".join(c if c.isalnum() else "_" for c in s)
@@ -527,67 +221,324 @@ def sanitize_type_name(s: str) -> str:
     return alphanumeric_with_underscore
 
 
-def sanitize_property_name(s: str) -> str:
-    return sanitize_type_name(s).lower()
+def sanitize_for_property_name(s: str) -> str:
+    return sanitize_for_type_name(s).lower()
 
 
-# ==============================================================================
-def generate_device_class(
-    device: DeviceDefinition,
-    enum_class_gen: EnumClassGenerator,
-    enum_param_gen: EnumParameterGenerator,
-) -> Tuple[List[CodeLine], str]:
-    """
-    Generates a class definition for the provided device.
+class ClassGenerator:
+    def __init__(self):
+        self._enum_class_generator = EnumClassGenerator()
+        self._enum_parameter_generator = EnumParameterGenerator()
 
-    :return: A Tuple of the class code and a recommended name for the class.
-    """
-    device_template: List[CodeLine] = []
+        # The base classes are stored as an extra, tacked on first CodeLine
+        self._classes: Dict[str, List[CodeLine]] = {}
 
-    base_classes = [act for act in [r.get_actualized(device.parameters) for r in device_base_rules] if act is not None]
+    def generate_class(
+        self,
+        name_prefix: str,
+        init_code: List[CodeLine],
+        base_class_names: List[str] = [],
+        avoid_duplicate_class_impls: bool = False,
+    ):
+        """
 
-    device_template += [
-        CodeLine(
-            f"class $class_name({', '.join(['Device', *[b.name for b in base_classes]])}):",
-            CodeIndent.NONE,
-            CodeIndent.INDENT,
-        )
-    ]
-    device_template += [
-        CodeLine("def __init__(self, name):", CodeIndent.NONE, CodeIndent.INDENT)
-    ]
+        :param name_prefix:
+        :param init_code:
+        :param base_class_names:
+        :param avoid_duplicate_class_impls: If a class exists with the same implementation then it
+                                            will be returned, even if it has a different name.
+        :return:
+        """
 
-    with ScopedCounter() as _:
-        for b in base_classes:
-            device_template.extend(
-                get_init_code(
-                    b,
-                    enum_class_gen,
-                    enum_param_gen,
-                    function_param_provider=get_function_param_values,
+        init_code = [
+            CodeLine(", ".join(base_class_names), CodeIndent.NONE, CodeIndent.NONE)
+        ] + init_code
+
+        if avoid_duplicate_class_impls:
+            for k, v in self._classes.items():
+                if v == init_code:
+                    return k
+
+        i = 0
+        class_name = name_prefix
+
+        while True:
+            if class_name not in self._classes.keys():
+                self._classes[class_name] = init_code
+
+            if self._classes[class_name] == init_code:
+                return class_name
+
+            class_name = f"{name_prefix}{i}"
+            i += 1
+
+    def get_generated_classes(self):
+        classes: Dict[str, List[CodeLine]] = {}
+
+        for name, lines in self._classes.items():
+            name, lines
+
+            inherits = f"({lines[0].line})" if lines[0].line else ""
+
+            lines = [
+                CodeLine(f"class {name}{inherits}:", CodeIndent.NONE, CodeIndent.INDENT)
+            ] + lines[1:]
+
+            if lines[-1] == CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT):
+                lines[-1] = CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)
+            elif lines[-1] == CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT):
+                lines[-1] = CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT2)
+            else:
+                lines += [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT)]
+
+            classes[name] = lines
+
+        return classes
+
+    def get_enum_class_name(self, values: List[str]):
+        return self._enum_class_generator.get_enum_class_name(values)
+
+    def get_enum_parameter_name(self, values: List[str], settable: bool):
+        enum_class_name = self._enum_class_generator.get_enum_class_name(values)
+
+        if settable:
+            return (
+                self._enum_parameter_generator.get_typename_for_settable_parameter_for(
+                    enum_class_name
                 )
             )
 
-    member_entries = [
-        generate_parameter_member(
-            param,
-            generate_parameter_param_values(param, enum_class_gen),
-            enum_class_gen,
-            enum_param_gen,
+        return self._enum_parameter_generator.get_typename_for_parameter_for(
+            enum_class_name
         )
-        for param in device.parameters
-        if param is not None
-    ]
-    device_template += member_entries
 
-    device_template += [
-        CodeLine("Device.__init__(self, name)", CodeIndent.NONE, CodeIndent.UNINDENT2)
-    ]
 
-    return (
-        device_template,
-        f"{sanitize_type_name(device.vendor)}_{sanitize_type_name(device.model_id)}",
-    )
+class ClassSkeletonArg:
+    def __init__(self, typename: str, value: str | None):
+        self.typename: str = typename
+        self.value: str | None = value
+
+
+class ClassSkeletonEntry:
+    def __init__(
+        self,
+        member_name: str | None,
+        initializer_expr: str,
+        arguments: List[ClassSkeletonArg],
+    ):
+        self.member_name: str | None = member_name
+        self.initializer_expr: str = initializer_expr
+        self.arguments: List[ClassSkeletonArg] = arguments
+
+
+class ClassSkeleton:
+    @staticmethod
+    def value_or_arg(value_opt: str | None):
+        if value_opt is None:
+            return f"arg{ScopedCounter.get()}"
+
+        return value_opt
+
+    def __init__(self, generator: ClassGenerator):
+        self.generator: ClassGenerator = generator
+        self.entries: List[ClassSkeletonEntry] = []
+
+    def add_entry(self, entry: ClassSkeletonEntry):
+        assert entry.member_name is None or entry.member_name not in {
+            e.member_name for e in self.entries if e.member_name is not None
+        }
+        self.entries.append(entry)
+
+    def append(self, other: ClassSkeleton):
+        assert self.generator == other.generator
+
+        for entry in other.entries:
+            self.add_entry(entry)
+
+    def get_init(self):
+        init: List[CodeLine] = []
+
+        for entry in self.entries:
+            line = ""
+
+            if entry.member_name is not None:
+                line += f"self.{entry.member_name} = "
+
+            args_str = ", ".join(
+                [ClassSkeleton.value_or_arg(arg.value) for arg in entry.arguments]
+            )
+
+            if not args_str:
+                line += entry.initializer_expr.replace(",$args", "").replace(
+                    ", $args", ""
+                )
+            else:
+                line += entry.initializer_expr.replace("$args", args_str)
+
+            init.append(CodeLine(line, CodeIndent.NONE, CodeIndent.NONE))
+
+        return init
+
+    def get_init_args(self) -> List[ClassSkeletonArg]:
+        args: List[ClassSkeletonArg] = []
+
+        for e in self.entries:
+            for a in e.arguments:
+                args.append(a)
+
+        return args
+
+    def get_init_arg_values(self):
+        return [ClassSkeleton.value_or_arg(a.value) for a in self.get_init_args()]
+
+
+def get_initialization_arguments(
+    cg: ClassGenerator, parameter: ParameterBaseDefinition
+):
+    def str_or_none(value_opt: Any) -> str | None:
+        if value_opt is None:
+            return None
+
+        return str(value_opt)
+
+    if isinstance(parameter, EnumParameterDefinition):
+        assert parameter.enum_definition is not None
+        assert parameter.enum_definition.values is not None
+        return [
+            ClassSkeletonArg(
+                "list[str]",
+                f"[e.value for e in {cg.get_enum_class_name(parameter.enum_definition.values)}]",
+            )
+        ]
+
+    elif isinstance(parameter, BinaryParameterDefinition):
+        return []
+    elif isinstance(parameter, ToggleParameterDefinition):
+        return []
+    elif isinstance(parameter, NumericParameterDefinition):
+        return [
+            ClassSkeletonArg("int", str_or_none(parameter.value_min)),
+            ClassSkeletonArg("int", str_or_none(parameter.value_max)),
+        ]
+    assert isinstance(parameter, CompositeParameterDefinition)
+    return []
+
+
+def quoted(x):
+    return f'"{x}"'
+
+
+def generate_class_skeleton(
+    cg: ClassGenerator, parameters: List[ParameterBaseDefinition]
+):
+    skeleton = ClassSkeleton(cg)
+
+    for parameter in parameters:
+        access = parameter.access_type
+
+        if isinstance(parameter, EnumParameterDefinition):
+            assert parameter.enum_definition is not None
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    parameter.name,
+                    f"{cg.get_enum_parameter_name(parameter.enum_definition.values, settable=access.is_settable())}({quoted(parameter.property)}, $args)",
+                    get_initialization_arguments(cg, parameter),
+                )
+            )
+
+        elif isinstance(parameter, BinaryParameterDefinition):
+
+            def get_typename_for_parameter():
+                if access.is_settable() and access.is_queryable():
+                    return "SettableAndQueryableBinaryParameter"
+                elif access.is_settable():
+                    return "SettableBinaryParameter"
+                elif access.is_queryable():
+                    return "QueryableBinaryParameter"
+
+                return "BinaryParameter"
+
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    parameter.name,
+                    f"{get_typename_for_parameter()}({quoted(parameter.property)}, $args)",
+                    get_initialization_arguments(cg, parameter),
+                )
+            )
+
+        elif isinstance(parameter, ToggleParameterDefinition):
+
+            def get_typename_for_parameter():
+                if access.is_settable() and access.is_queryable():
+                    return "SettableAndQueryableToggleParameter"
+                elif access.is_settable():
+                    return "SettableToggleParameter"
+                elif access.is_queryable():
+                    return "QueryableToggleParameter"
+
+                return "ToggleParameter"
+
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    parameter.name,
+                    f"{get_typename_for_parameter()}({quoted(parameter.property)}, $args)",
+                    get_initialization_arguments(cg, parameter),
+                )
+            )
+
+        elif isinstance(parameter, NumericParameterDefinition):
+
+            def get_typename_for_parameter():
+                if access.is_settable() and access.is_queryable():
+                    return "SettableAndQueryableNumericParameter"
+                elif access.is_settable():
+                    return "SettableNumericParameter"
+                elif access.is_queryable():
+                    return "QueryableNumericParameter"
+
+                return "NumericParameter"
+
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    parameter.name,
+                    f"{get_typename_for_parameter()}({quoted(parameter.property)}, $args)",
+                    get_initialization_arguments(cg, parameter),
+                )
+            )
+
+        elif isinstance(parameter, CompositeParameterDefinition):
+            composite_skeleton = generate_class_skeleton(cg, parameter.parameters)
+            composite_skeleton.add_entry(
+                ClassSkeletonEntry(
+                    None,
+                    f"CompositeParameter.__init__(self, property)",
+                    [],
+                )
+            )
+
+            composite_class_name = cg.generate_class(
+                "CompositeParameterVariant",
+                [
+                    CodeLine(
+                        "def __init__(self, property: str):",
+                        CodeIndent.NONE,
+                        CodeIndent.INDENT,
+                    )
+                ]
+                + composite_skeleton.get_init()
+                + [CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT)],
+                base_class_names=["CompositeParameter"],
+            )
+
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    parameter.name,
+                    f"{composite_class_name}({quoted(parameter.property)}, $args)",
+                    get_initialization_arguments(cg, parameter),
+                )
+            )
+
+    return skeleton
 
 
 def generate_devices_client(payload: Dict[Any, Any], output: Path):
@@ -608,17 +559,20 @@ from emkyoot.parameters import (
     BinaryParameter,
     SettableAndQueryableToggleParameter,
     int_to_enum,
+    SettableAndQueryableBinaryParameter,
+    SettableBinaryParameter,
+    CompositeParameter,
 )
 
 from emkyoot.device_bases import *
 
-""",
-            CodeIndent.NONE,
-            CodeIndent.NONE,
+"""
         )
     )
 
-    devices_code = [
+    cg = ClassGenerator()
+
+    available_devices: List[CodeLine] = [
         CodeLine(
             "class AvailableDevices(DevicesClient):", CodeIndent.NONE, CodeIndent.INDENT
         ),
@@ -627,43 +581,91 @@ from emkyoot.device_bases import *
             CodeIndent.NONE,
             CodeIndent.INDENT,
         ),
-        CodeLine("super().__init__(no_query)", CodeIndent.NONE, CodeIndent.NONE),
+        CodeLine(
+            "super().__init__(no_query)",
+            CodeIndent.NONE,
+            CodeIndent.NONE,
+        ),
     ]
-
-    classes_code: Dict[str, None] = {}
-
-    enum_class_gen = EnumClassGenerator()
-    enum_param_gen = EnumParameterGenerator()
-    class_for_impl = ClassForImplementation()
 
     for device_description in payload:
         device = DeviceDefinition.extract(device_description)
 
-        if device is not None:
-            class_name = class_for_impl.get_class_name(
-                *generate_device_class(device, enum_class_gen, enum_param_gen)
-            )
-            devices_code.append(
+        if device is None:
+            continue
+
+        init_lines: List[CodeLine] = [
+            CodeLine("def __init__(self, name):", CodeIndent.NONE, CodeIndent.INDENT)
+        ]
+        base_class_names: List[str] = []
+
+        for base_template in device_base_rules:
+            matched_parameters = base_template.match(device.parameters)
+
+            if matched_parameters is None:
+                continue
+
+            device.parameters = [
+                p for p in device.parameters if p not in matched_parameters
+            ]
+            base_cls = generate_class_skeleton(cg, matched_parameters)
+            base_class_names += [base_template.name]
+            base_args = ["self"]
+            init_lines += [
                 CodeLine(
-                    f"self.{sanitize_property_name(device.friendly_name)} = {class_name}('{device.friendly_name}')",
+                    f"{base_template.name}.__init__({', '.join(base_args + base_cls.get_init_arg_values())})",
                     CodeIndent.NONE,
                     CodeIndent.NONE,
                 )
-            )
+            ]
 
-    code += enum_class_gen.get_code_for_enum_class_definitions()
-    code += enum_param_gen.get_code_for_enum_parameter_definitions()
+        cls = generate_class_skeleton(cg, device.parameters)
+        init_lines += cls.get_init()
 
-    for name in class_for_impl.get_class_names_in_order():
-        code.append(
+        init_lines += [
             CodeLine(
-                class_for_impl.get_class_code(name),
-                CodeIndent.NONE,
-                CodeIndent.NONE,
-            )
+                "Device.__init__(self, name)", CodeIndent.NONE, CodeIndent.UNINDENT
+            ),
+            CodeLine(""),
+        ]
+
+        device_class_name = cg.generate_class(
+            f"{sanitize_for_type_name(device.vendor)}_{sanitize_for_type_name(device.model_id)}",
+            init_lines,
+            ["Device"] + base_class_names,
+            avoid_duplicate_class_impls=True,
         )
 
-    code += devices_code
+        device_property_name = f"{sanitize_for_property_name(device.friendly_name)}"
+
+        available_devices += [
+            CodeLine(
+                f'self.{device_property_name} = {device_class_name}("{device.friendly_name}")',
+                CodeIndent.NONE,
+                CodeIndent.NONE,
+            )
+        ]
+
+    available_devices += [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)]
+
+    code += cg._enum_class_generator.get_code_for_enum_class_definitions()
+    code += cg._enum_parameter_generator.get_code_for_enum_parameter_definitions()
+
+    generated_classes = dict(sorted(cg.get_generated_classes().items()))
+
+    for class_name, class_code in generated_classes.items():
+        if not "CompositeParameter" in class_name:
+            continue
+
+        code += class_code
+
+    for class_name, class_code in generated_classes.items():
+        if "CompositeParameter" in class_name:
+            continue
+
+        code += class_code
+
+    code += available_devices
 
     with open(output.parent / "__init__.py", "w") as f:
         f.write("")
@@ -673,32 +675,57 @@ from emkyoot.device_bases import *
 
 
 def generate_device_bases():
-    enum_class_gen = EnumClassGenerator()
-    enum_param_gen = EnumParameterGenerator()
+    def generate_class(generator: ClassGenerator, class_req: BaseClassRequirement):
+        skeleton = ClassSkeleton(generator)
 
-    classes_code: Dict[str, None] = {}
-
-    def visit(base: BaseClassRequirement):
-        if base.name not in classes_code.keys():
-            classes_code[
-                CodeLine.join(
-                    "\n", get_class_code(base, enum_class_gen, enum_param_gen)
+        base_classes = [
+            base_class
+            for base_class in class_req.reqs
+            if isinstance(base_class, BaseClassRequirement)
+        ]
+        for base_class in base_classes:
+            base_skeleton = generate_class(generator, base_class)
+            skeleton.add_entry(
+                ClassSkeletonEntry(
+                    None,
+                    f"{base_class.name}.__init__(self, $args)",
+                    base_skeleton.get_init_args(),
                 )
-            ] = None
+            )
 
-        for base_req in base.reqs:
-            if isinstance(base_req, BaseClassRequirement):
-                visit(base_req)
+        params = [
+            param
+            for param in class_req.reqs
+            if isinstance(param, ParameterBaseDefinition)
+        ]
+        skeleton.append(generate_class_skeleton(generator, params))
 
-    def get_device_base_rules_reversed():
-        result = device_base_rules.copy()
-        result.reverse()
-        return result
+        init_args = ["self"]
 
-    device_base_rules_reversed = get_device_base_rules_reversed()
+        with ScopedCounter() as _:
+            init_args += skeleton.get_init_arg_values()
 
-    for b in device_base_rules_reversed:
-        visit(b)
+        with ScopedCounter() as _:
+            cg.generate_class(
+                class_req.name,
+                [
+                    CodeLine(
+                        f"def __init__({', '.join(init_args)}):",
+                        CodeIndent.NONE,
+                        CodeIndent.INDENT,
+                    )
+                ]
+                + skeleton.get_init()
+                + [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)],
+                base_class_names=[b.name for b in base_classes],
+            )
+
+        return skeleton
+
+    cg = ClassGenerator()
+
+    for base_class in device_base_rules:
+        generate_class(cg, base_class)
 
     code = """# This file is autogenerated by emkyoot
 # See emkyoot.generator.generate_device_bases()
@@ -715,9 +742,10 @@ from emkyoot.parameters import (
     int_to_enum,
 )
 
-""" + "".join(
-        classes_code.keys()
-    )
+"""
+
+    for class_name, class_code in cg.get_generated_classes().items():
+        code += CodeLine.join("\n", class_code)
 
     all_imports: List[CodeLine] = [
         CodeLine("__all__ = [", CodeIndent.NONE, CodeIndent.INDENT)

@@ -19,30 +19,28 @@ from __future__ import annotations
 
 from typing import List
 
-from .device_base_requirements import BaseClassRequirement, ParameterRequirement
+from .device_base_requirements import BaseClassRequirement
 from ..parser import ParameterAccessType
 from ..parser import ToggleParameterDefinition, NumericParameterDefinition
 
 dimmable_light = BaseClassRequirement(
     "DimmableLight",
     [
-        ParameterRequirement(
-            ToggleParameterDefinition(
-                "state",
-                ParameterAccessType.EXISTS
-                | ParameterAccessType.SETTABLE
-                | ParameterAccessType.QUERYABLE,
-            )
+        ToggleParameterDefinition(
+            "state",
+            "state",
+            ParameterAccessType.EXISTS
+            | ParameterAccessType.SETTABLE
+            | ParameterAccessType.QUERYABLE,
         ),
-        ParameterRequirement(
-            NumericParameterDefinition(
-                "brightness",
-                ParameterAccessType.EXISTS
-                | ParameterAccessType.SETTABLE
-                | ParameterAccessType.QUERYABLE,
-                None,
-                None,
-            )
+        NumericParameterDefinition(
+            "brightness",
+            "brightness",
+            ParameterAccessType.EXISTS
+            | ParameterAccessType.SETTABLE
+            | ParameterAccessType.QUERYABLE,
+            None,
+            None,
         ),
     ],
 )
@@ -51,15 +49,14 @@ light_with_color_temp = BaseClassRequirement(
     "LightWithColorTemp",
     [
         dimmable_light,
-        ParameterRequirement(
-            NumericParameterDefinition(
-                "color_temp",
-                ParameterAccessType.EXISTS
-                | ParameterAccessType.SETTABLE
-                | ParameterAccessType.QUERYABLE,
-                None,
-                None,
-            )
+        NumericParameterDefinition(
+            "color_temp",
+            "color_temp",
+            ParameterAccessType.EXISTS
+            | ParameterAccessType.SETTABLE
+            | ParameterAccessType.QUERYABLE,
+            None,
+            None,
         ),
     ],
 )

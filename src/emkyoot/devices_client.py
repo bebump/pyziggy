@@ -23,6 +23,7 @@ from emkyoot.parameters import Broadcaster
 from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber
 from .parameters import (
+    ParameterBase,
     NumericParameter,
     QueryableNumericParameter,
 )
@@ -31,18 +32,28 @@ from .parameters import (
 class Device(MqttSubscriber, AsyncUpdater):
     def __init__(self, property_name: str):
         MqttSubscriber.__init__(self, property_name)
-        self._numeric_parameters: Dict[str, NumericParameter] = {}
+        self._parameters: Dict[str, List[ParameterBase]] = {}
         self._register_parameter_members()
-        self._sync_parameters_requesting_callback: List[NumericParameter] = []
+        self._sync_parameters_requesting_callback: List[ParameterBase] = []
         self._in_on_message = False
+
+    @final
+    def _get_parameters(self):
+        params: List[ParameterBase] = []
+
+        for k, ps in self._parameters.items():
+            params += ps
+
+        return params
 
     @override
     def _on_message(self, payload: Dict[Any, Any]):
         self._in_on_message = True
 
         for k, v in payload.items():
-            if k in self._numeric_parameters.keys():
-                self._numeric_parameters[k]._set_reported_value(v)
+            if k in self._parameters.keys():
+                for p in self._parameters[k]:
+                    p._set_reported_value(v)
 
         self._in_on_message = False
         self._execute_synchronous_parameter_callbacks()
@@ -64,8 +75,12 @@ class Device(MqttSubscriber, AsyncUpdater):
     @final
     def _register_parameter_members(self):
         for key, member in vars(self).items():
-            if isinstance(member, NumericParameter):
-                self._numeric_parameters[member.get_property_name()] = member
+            if isinstance(member, ParameterBase):
+                if member.get_property_name() not in self._parameters:
+                    self._parameters[member.get_property_name()] = []
+
+                self._parameters[member.get_property_name()] += [member]
+
                 member._wants_to_call_listeners_broadcaster.add_listener(
                     self._parameter_changed
                 )
@@ -79,7 +94,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     # @internal
     @override
     def _handle_async_update(self):
-        for k, param in self._numeric_parameters.items():
+        for param in self._get_parameters():
             param._call_listeners_if_necessary()
 
         if not self.is_connected():
@@ -97,7 +112,7 @@ class Device(MqttSubscriber, AsyncUpdater):
 
     # @internal
     @final
-    def _synchronous_parameter_changed(self, parameter: NumericParameter) -> None:
+    def _synchronous_parameter_changed(self, parameter: ParameterBase) -> None:
         self._sync_parameters_requesting_callback.append(parameter)
 
         if not self._in_on_message:
@@ -107,7 +122,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     def _publish_changes(self):
         mqtt_update: Dict[str, Any] = {}
 
-        for k, param in self._numeric_parameters.items():
+        for param in self._get_parameters():
             param._append_dictionary_sent_to_device(mqtt_update)
 
         if mqtt_update:
@@ -117,7 +132,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     def _query_parameters(self):
         mqtt_query: Dict[str, Any] = {}
 
-        for k, param in self._numeric_parameters.items():
+        for param in self._get_parameters():
             if param._should_device_be_queryied():
                 mqtt_query[param.get_property_name()] = ""
 
@@ -126,9 +141,9 @@ class Device(MqttSubscriber, AsyncUpdater):
 
 
 class DevicesClient(MqttClient):
-    def __init__(self, no_query: bool = False):
+    def __init__(self, skip_initial_query: bool = False):
         super().__init__()
-        self._no_query = no_query
+        self._skip_initial_query = skip_initial_query
         self.on_connect = Broadcaster()
 
     @final
@@ -141,6 +156,9 @@ class DevicesClient(MqttClient):
 
         return devices
 
+    def _set_skip_initial_query(self, skip: bool) -> None:
+        self._skip_initial_query = skip
+
     @override
     def _on_connect_message_thread(
         self, client, userdata, flags, reason_code, properties
@@ -149,7 +167,7 @@ class DevicesClient(MqttClient):
             client, userdata, flags, reason_code, properties
         )
 
-        if not self._no_query:
+        if not self._skip_initial_query:
             for key, device in vars(self).items():
                 if not isinstance(device, Device):
                     continue

@@ -25,42 +25,37 @@ from ..parser import (
 
 class BaseClassRequirement:
     def __init__(
-        self, name: str, reqs: List[BaseClassRequirement | ParameterRequirement]
+        self, name: str, reqs: List[BaseClassRequirement | ParameterBaseDefinition]
     ):
         self.name = name
         self.reqs = reqs
 
-    def get_actualized(self, parameters: List[ParameterBaseDefinition]) -> BaseClassRequirement | None:
-        consumable_parameters = parameters.copy()
-        actualized_reqs = self.reqs.copy()
+    def match(
+        self,
+        parameters: List[ParameterBaseDefinition],
+        matching_parameters: List[ParameterBaseDefinition] | None = None,
+    ) -> List[ParameterBaseDefinition] | None:
+        if matching_parameters is None:
+            matching_parameters = []
 
-        for i in range(0, len(actualized_reqs)):
-            actualized_req = actualized_reqs[i].get_actualized(consumable_parameters)
+        for req in self.reqs:
+            if isinstance(req, BaseClassRequirement):
+                result = req.match(parameters, matching_parameters)
 
-            if actualized_req is None:
-                return None
+                if result is None:
+                    return None
 
-            actualized_reqs[i] = actualized_req
+                matching_parameters += [r for r in result if r not in matching_parameters]
+            elif isinstance(req, ParameterBaseDefinition):
+                match_found = False
 
-        parameters[:] = consumable_parameters[:]
-        return BaseClassRequirement(self.name, actualized_reqs)
+                for param in parameters:
+                    if param not in matching_parameters and req.is_match_for(param):
+                        matching_parameters.append(param)
+                        match_found = True
+                        break
 
+                if not match_found:
+                    return None
 
-class ParameterRequirement:
-    def __init__(self, parameter: ParameterBaseDefinition):
-        self.parameter: ParameterBaseDefinition = parameter
-
-    def get_actualized(self, parameters: List[ParameterBaseDefinition]) -> ParameterRequirement | None:
-        matching_param: int | None = None
-
-        for i, param in enumerate(parameters):
-            if self.parameter.is_match_for(param):
-                matching_param = i
-                break
-
-        if matching_param is None:
-            return None
-
-        result = ParameterRequirement(parameters[matching_param])
-        del parameters[matching_param]
-        return result
+        return matching_parameters

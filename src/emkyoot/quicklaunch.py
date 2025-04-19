@@ -224,6 +224,7 @@ def get_devices_client_module_path(
 def quicklaunch(
     devices_client_param: DevicesClient | Path,
     config: EmkyootConfig,
+    skip_initial_query: bool = False,
     flask_app: Flask | None = None,
 ):
     devices_client_module_path = get_devices_client_module_path(devices_client_param)
@@ -249,6 +250,10 @@ def quicklaunch(
         if flask_app is not None
         else None
     )
+
+    if skip_initial_query:
+        print("Using --skip_initial_query. Initial parameter values will not reflect the devices' true states.")
+        devices_client._set_skip_initial_query(True)
 
     devices_client.connect(
         config.host, config.port, config.keepalive, config.base_topic

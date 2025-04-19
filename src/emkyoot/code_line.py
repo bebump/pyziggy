@@ -30,7 +30,7 @@ class CodeIndent(IntEnum):
 class CodeLine:
     def __init__(
         self,
-        line: str,
+        line: str = "",
         preindent: CodeIndent = CodeIndent.NONE,
         postindent: CodeIndent = CodeIndent.NONE,
     ):
@@ -38,6 +38,15 @@ class CodeLine:
         self.line = line
         self.preindent = preindent
         self.postindent = postindent
+
+    def __eq__(self, other):
+        if not isinstance(other, CodeLine):
+            return False
+        return (
+            self.line == other.line
+            and self.preindent == other.preindent
+            and self.postindent == other.postindent
+        )
 
     def __str__(self):
         return self.line
@@ -58,7 +67,12 @@ class CodeLine:
             if indent_level < 0:
                 indent_level = 0
 
-            result += "    " * indent_level + str(line) + separator
+            new_line = "    " * indent_level + str(line)
+
+            if new_line.strip() == "":
+                new_line = new_line.replace(" ", "")
+
+            result += new_line + separator
 
             if line.postindent == CodeIndent.INDENT:
                 indent_level += 1

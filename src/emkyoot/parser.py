@@ -49,8 +49,10 @@ class ParameterBaseDefinition:
     ParameterBaseDefinition and such None members will be considered equal with any
     other value.
     """
-    def __init__(self, property: str, access_type: int):
+
+    def __init__(self, property: str, name: str, access_type: int):
         self.property: str = property
+        self.name: str = name
         self.access_type: ParameterAccessType = ParameterAccessType(access_type)
 
     def is_match_for(self, other):
@@ -59,14 +61,26 @@ class ParameterBaseDefinition:
 
         other_vars = vars(other)
         for key, member in vars(self).items():
-            if member is not None and other_vars[key] is not None and member != other_vars[key]:
+            if (
+                member is not None
+                and other_vars[key] is not None
+                and member != other_vars[key]
+            ):
                 return False
 
         return True
 
+
 class NumericParameterDefinition(ParameterBaseDefinition):
-    def __init__(self, property: str, access_type: int, value_min: int | None, value_max: int | None):
-        super().__init__(property, access_type)
+    def __init__(
+        self,
+        property: str,
+        name: str,
+        access_type: int,
+        value_min: int | None,
+        value_max: int | None,
+    ):
+        super().__init__(property, name, access_type)
         self.value_min: int | None = value_min
         self.value_max: int | None = value_max
 
@@ -81,6 +95,7 @@ class NumericParameterDefinition(ParameterBaseDefinition):
 
             return NumericParameterDefinition(
                 feature["property"],
+                feature["name"],
                 feature["access"],
                 feature["value_min"] if "value_min" in feature else -(2**31),
                 feature["value_max"] if "value_max" in feature else 2**31 - 1,
@@ -90,8 +105,8 @@ class NumericParameterDefinition(ParameterBaseDefinition):
 
 
 class BinaryParameterDefinition(NumericParameterDefinition):
-    def __init__(self, property: str, access_type: int):
-        super().__init__(property, access_type, 0, 1)
+    def __init__(self, property: str, name: str, access_type: int):
+        super().__init__(property, name, access_type, 0, 1)
 
     def __repr__(self):
         return f"BinaryParameterDefinition({self.property})"
@@ -103,14 +118,18 @@ class BinaryParameterDefinition(NumericParameterDefinition):
                 return None
 
             if feature["value_off"] == False and feature["value_on"] == True:
-                return BinaryParameterDefinition(feature["property"], feature["access"])
+                return BinaryParameterDefinition(
+                    feature["property"], feature["name"], feature["access"]
+                )
         except:
-            return None
+            pass
+
+        return None
 
 
 class ToggleParameterDefinition(NumericParameterDefinition):
-    def __init__(self, property: str, access_type: int):
-        super().__init__(property, access_type, 0, 1)
+    def __init__(self, property: str, name: str, access_type: int):
+        super().__init__(property, name, access_type, 0, 1)
 
     def __repr__(self):
         return f"ToggleParameterDefinition({self.property})"
@@ -123,9 +142,13 @@ class ToggleParameterDefinition(NumericParameterDefinition):
                 and feature["value_on"] == "ON"
                 and feature["value_toggle"] == "TOGGLE"
             ):
-                return ToggleParameterDefinition(feature["property"], feature["access"])
+                return ToggleParameterDefinition(
+                    feature["property"], feature["name"], feature["access"]
+                )
         except:
-            return None
+            pass
+
+        return None
 
 
 class StringEnumDefinition:
@@ -135,9 +158,19 @@ class StringEnumDefinition:
 
 
 class EnumParameterDefinition(NumericParameterDefinition):
-    def __init__(self, property: str, access_type: int, enumeration: List[str] | None):
-        super().__init__(property, access_type, 0, len(enumeration) if enumeration is not None else None)
-        self.enum_definition: StringEnumDefinition | None = StringEnumDefinition(enumeration) if enumeration is not None else None
+    def __init__(
+        self, property: str, name: str, access_type: int, enumeration: List[str] | None
+    ):
+        super().__init__(
+            property,
+            name,
+            access_type,
+            0,
+            len(enumeration) if enumeration is not None else None,
+        )
+        self.enum_definition: StringEnumDefinition | None = (
+            StringEnumDefinition(enumeration) if enumeration is not None else None
+        )
 
     @staticmethod
     def extract(feature: Dict[str, Any]):
@@ -146,7 +179,53 @@ class EnumParameterDefinition(NumericParameterDefinition):
                 return None
 
             return EnumParameterDefinition(
-                feature["property"], feature["access"], feature["values"]
+                feature["property"],
+                feature["name"],
+                feature["access"],
+                feature["values"],
+            )
+        except Exception as e:
+            print(e)
+            return None
+
+
+non_composite_parameter_type_definitions = [
+    NumericParameterDefinition,
+    BinaryParameterDefinition,
+    ToggleParameterDefinition,
+    EnumParameterDefinition,
+]
+
+
+class CompositeParameterDefinition(ParameterBaseDefinition):
+    def __init__(
+        self,
+        property: str,
+        name: str,
+        access_type: int,
+        parameters: List[ParameterBaseDefinition],
+    ):
+        super().__init__(property, name, access_type)
+        self.parameters: List[ParameterBaseDefinition] = parameters
+
+    @staticmethod
+    def extract(feature: Dict[str, Any]):
+        try:
+            if feature["type"] != "composite":
+                return None
+
+            parameters: List[ParameterBaseDefinition] = []
+
+            for node in feature["features"]:
+                for extractor in non_composite_parameter_type_definitions:
+                    parameter = extractor.extract(node)  # type: ignore[attr-defined]
+
+                    if parameter is not None:
+                        parameters.append(parameter)
+                        break
+
+            return CompositeParameterDefinition(
+                feature["property"], feature["name"], feature["access"], parameters
             )
         except Exception as e:
             print(e)
@@ -154,6 +233,7 @@ class EnumParameterDefinition(NumericParameterDefinition):
 
 
 parameter_type_definitions = [
+    CompositeParameterDefinition,
     NumericParameterDefinition,
     BinaryParameterDefinition,
     ToggleParameterDefinition,
@@ -165,7 +245,11 @@ def extract_parameter(
     node,
 ) -> Optional[
     Union[
-        NumericParameterDefinition, BinaryParameterDefinition, ToggleParameterDefinition, EnumParameterDefinition
+        CompositeParameterDefinition,
+        NumericParameterDefinition,
+        BinaryParameterDefinition,
+        ToggleParameterDefinition,
+        EnumParameterDefinition,
     ]
 ]:
     for extractor in parameter_type_definitions:
