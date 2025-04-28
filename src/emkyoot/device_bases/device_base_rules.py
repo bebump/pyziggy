@@ -21,7 +21,7 @@ from typing import List
 
 from .device_base_requirements import BaseClassRequirement
 from ..parser import ParameterAccessType
-from ..parser import ToggleParameterDefinition, NumericParameterDefinition
+from ..parser import ToggleParameterDefinition, NumericParameterDefinition, CompositeParameterDefinition
 
 dimmable_light = BaseClassRequirement(
     "DimmableLight",
@@ -61,10 +61,72 @@ light_with_color_temp = BaseClassRequirement(
     ],
 )
 
+color_light = BaseClassRequirement(
+    "ColorLight",
+    [
+        light_with_color_temp,
+        CompositeParameterDefinition(
+            "color",
+            "color_xy",
+            ParameterAccessType.EXISTS
+            | ParameterAccessType.SETTABLE
+            | ParameterAccessType.QUERYABLE,
+            [
+                NumericParameterDefinition(
+                    "x",
+                    "x",
+                    ParameterAccessType.EXISTS
+                    | ParameterAccessType.SETTABLE
+                    | ParameterAccessType.QUERYABLE,
+                    None,
+                    None,
+                ),
+                NumericParameterDefinition(
+                    "y",
+                    "y",
+                    ParameterAccessType.EXISTS
+                    | ParameterAccessType.SETTABLE
+                    | ParameterAccessType.QUERYABLE,
+                    None,
+                    None,
+                ),
+            ],
+        ),
+        CompositeParameterDefinition(
+            "color",
+            "color_hs",
+            ParameterAccessType.EXISTS
+            | ParameterAccessType.SETTABLE
+            | ParameterAccessType.QUERYABLE,
+            [
+                NumericParameterDefinition(
+                    "hue",
+                    "hue",
+                    ParameterAccessType.EXISTS
+                    | ParameterAccessType.SETTABLE
+                    | ParameterAccessType.QUERYABLE,
+                    None,
+                    None,
+                ),
+                NumericParameterDefinition(
+                    "saturation",
+                    "saturation",
+                    ParameterAccessType.EXISTS
+                    | ParameterAccessType.SETTABLE
+                    | ParameterAccessType.QUERYABLE,
+                    None,
+                    None,
+                ),
+            ],
+        ),
+    ],
+)
+
 # Enumerate base rules in reverse order of priority. Matching an abstraction removes the
 # required parameters, so lower priority abstractions using those same parameters will not
 # be matched.
 device_base_rules: List[BaseClassRequirement] = [
+    color_light,
     light_with_color_temp,
     dimmable_light,
 ]

@@ -10,6 +10,7 @@ from emkyoot.parameters import (
     BinaryParameter,
     SettableToggleParameter,
     SettableAndQueryableToggleParameter,
+    CompositeParameter,
     int_to_enum,
 )
 
@@ -25,7 +26,29 @@ class LightWithColorTemp(DimmableLight):
         self.color_temp = SettableAndQueryableNumericParameter("color_temp", arg2, arg3)
 
 
+class CompositeParameterVariant(CompositeParameter):
+    def __init__(self, property: str, arg0, arg1, arg2, arg3):
+        self.x = SettableAndQueryableNumericParameter("x", arg0, arg1)
+        self.y = SettableAndQueryableNumericParameter("y", arg2, arg3)
+        CompositeParameter.__init__(self, property)
+
+
+class CompositeParameterVariant0(CompositeParameter):
+    def __init__(self, property: str, arg0, arg1, arg2, arg3):
+        self.hue = SettableAndQueryableNumericParameter("hue", arg0, arg1)
+        self.saturation = SettableAndQueryableNumericParameter("saturation", arg2, arg3)
+        CompositeParameter.__init__(self, property)
+
+
+class ColorLight(LightWithColorTemp):
+    def __init__(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11):
+        LightWithColorTemp.__init__(self, arg0, arg1, arg2, arg3)
+        self.color_xy = CompositeParameterVariant("color", arg4, arg5, arg6, arg7)
+        self.color_hs = CompositeParameterVariant0("color", arg8, arg9, arg10, arg11)
+
+
 __all__ = [
+    'ColorLight',
     'LightWithColorTemp',
     'DimmableLight',
     ]

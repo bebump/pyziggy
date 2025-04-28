@@ -61,11 +61,28 @@ class ParameterBaseDefinition:
 
         other_vars = vars(other)
         for key, member in vars(self).items():
-            if (
-                member is not None
-                and other_vars[key] is not None
-                and member != other_vars[key]
-            ):
+            if member is None or (key in other_vars and other_vars[key] is None):
+                continue
+
+            if isinstance(member, list):
+                if len(member) != len(other_vars[key]):
+                    return False
+
+                list_is_match = True
+
+                for i in range(len(member)):
+                    if not isinstance(member[i], ParameterBaseDefinition):
+                        list_is_match = False
+                        break
+
+                    if not member[i].is_match_for(other_vars[key][i]):
+                        list_is_match = False
+                        break
+
+                if list_is_match:
+                    continue
+
+            if member != other_vars[key]:
                 return False
 
         return True

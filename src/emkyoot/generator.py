@@ -421,7 +421,12 @@ def get_initialization_arguments(
             ClassSkeletonArg("int", str_or_none(parameter.value_max)),
         ]
     assert isinstance(parameter, CompositeParameterDefinition)
-    return []
+    args: List[ClassSkeletonArg] = []
+
+    for p in parameter.parameters:
+        args += get_initialization_arguments(cg, p)
+
+    return args
 
 
 def quoted(x):
@@ -508,6 +513,11 @@ def generate_class_skeleton(
 
         elif isinstance(parameter, CompositeParameterDefinition):
             composite_skeleton = generate_class_skeleton(cg, parameter.parameters)
+
+            for e in composite_skeleton.entries:
+                for a in e.arguments:
+                    a.value = None
+
             composite_skeleton.add_entry(
                 ClassSkeletonEntry(
                     None,
@@ -516,19 +526,27 @@ def generate_class_skeleton(
                 )
             )
 
-            composite_class_name = cg.generate_class(
-                "CompositeParameterVariant",
-                [
-                    CodeLine(
-                        "def __init__(self, property: str):",
-                        CodeIndent.NONE,
-                        CodeIndent.INDENT,
-                    )
-                ]
-                + composite_skeleton.get_init()
-                + [CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT)],
-                base_class_names=["CompositeParameter"],
-            )
+            init_args = ["self", "property: str"]
+
+            with ScopedCounter() as _:
+                init_args += composite_skeleton.get_init_arg_values()
+
+            composite_class_name = ""
+
+            with ScopedCounter() as _:
+                composite_class_name = cg.generate_class(
+                    "CompositeParameterVariant",
+                    [
+                        CodeLine(
+                            f"def __init__({', '.join(init_args)}):",
+                            CodeIndent.NONE,
+                            CodeIndent.INDENT,
+                        )
+                    ]
+                    + composite_skeleton.get_init()
+                    + [CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT)],
+                    base_class_names=["CompositeParameter"],
+                )
 
             skeleton.add_entry(
                 ClassSkeletonEntry(
@@ -739,6 +757,7 @@ from emkyoot.parameters import (
     BinaryParameter,
     SettableToggleParameter,
     SettableAndQueryableToggleParameter,
+    CompositeParameter,
     int_to_enum,
 )
 
