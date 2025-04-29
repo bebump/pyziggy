@@ -43,6 +43,9 @@ class EmkyootConfig:
         port: int,
         keepalive: int,
         base_topic: str,
+        username: str | None,
+        password: str | None,
+        use_tls: bool,
         flask_port: int,
     ):
         self.host = host
@@ -50,6 +53,9 @@ class EmkyootConfig:
         self.keepalive = keepalive
         self.base_topic = base_topic
         self.flask_port = flask_port
+        self.username = username
+        self.password = password
+        self.use_tls = use_tls
 
     def write(self, config_file: Path):
         with open(config_file, "w") as f:
@@ -60,6 +66,9 @@ class EmkyootConfig:
                         "port": self.port,
                         "keepalive": self.keepalive,
                         "base_topic": self.base_topic,
+                        "username": self.username,
+                        "password": self.password,
+                        "use_tls": self.use_tls,
                     },
                     "flask": {
                         "flask_port": self.flask_port,
@@ -83,6 +92,17 @@ class EmkyootConfig:
                 config["mqtt_server"]["port"],
                 config["mqtt_server"]["keepalive"],
                 config["mqtt_server"]["base_topic"],
+                (
+                    config["mqtt_server"]["username"]
+                    if "username" in config["mqtt_server"]
+                    else None
+                ),
+                (
+                    config["mqtt_server"]["password"]
+                    if "password" in config["mqtt_server"]
+                    else None
+                ),
+                config["mqtt_server"]["use_tls"],
                 flask_port,
             )
 
@@ -91,14 +111,46 @@ class EmkyootConfig:
 
     @staticmethod
     def create_default() -> EmkyootConfig:
-        return EmkyootConfig("192.168.1.56", 1883, 60, "zigbee2mqtt", 5001)
+        return EmkyootConfig(
+            "192.168.1.56", 1883, 60, "zigbee2mqtt", None, None, False, 5001
+        )
+
+    @staticmethod
+    def write_default(config_file: Path):
+        default_config = """[mqtt_server]
+host = "192.168.1.56"
+port = 1883
+keepalive = 60
+base_topic = "zigbee2mqtt"
+use_tls = false
+
+# If your MQTT server requires a username and password, you can provide them by
+# uncommenting and setting the below values. In this case you probably need to
+# enable the use_tls setting as well.
+#
+# username = "your_username"
+# password = "your_password"
+
+[flask]
+flask_port = 5001
+"""
+        with open(config_file, "w") as f:
+            f.write(default_config)
 
 
 def regenerate_device_definitions(available_devices_path: Path, config: EmkyootConfig):
     from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
-    generator._connect(config.host, config.port, config.keepalive, config.base_topic)
+    generator._connect(
+        config.host,
+        config.port,
+        config.keepalive,
+        config.base_topic,
+        config.use_tls,
+        config.username,
+        config.password,
+    )
 
     # The generator quits on its own when its job is finished
     generator._loop_forever()

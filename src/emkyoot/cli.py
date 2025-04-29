@@ -46,7 +46,7 @@ def quicklaunch_cmd(args):
             f"Creating empty template for missing config file: {config_file}.\n"
             f"Review and edit the config file, then relaunch this command."
         )
-        EmkyootConfig.create_default().write(config_file)
+        EmkyootConfig.write_default(config_file)
         exit(0)
 
     config = EmkyootConfig.load(config_file)

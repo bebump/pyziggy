@@ -82,8 +82,16 @@ class MqttClient:
         self._base_topic: str = ""
 
     @final
-    def _connect(self, host, port, keepalive, base_topic: str):
+    def _connect(self, host, port, keepalive, base_topic: str, use_tls: bool = False, username: str = None, password: str = None):
         self._base_topic = base_topic
+
+        if use_tls:
+            self._mqttc.tls_set()
+            self._mqttc.tls_insecure_set(True)
+
+        if username is not None and password is not None:
+            self._mqttc.username_pw_set(username, password)
+
         self._mqttc.connect(host, port, keepalive)
 
     @final
