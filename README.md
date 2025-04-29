@@ -19,6 +19,74 @@ Follow the on-screen instructions. Everything, including the `automation.py` fil
 
 You can also find more information by issuing `emkyoot -h`.
 
+## Examples
+
+### A minimal example that does something
+
+```
+from emkyoot.message_loop import message_loop, MessageLoopTimer
+from emkyoot_autogenerate.available_devices import AvailableDevices
+
+
+def exit(timer: MessageLoopTimer):
+    message_loop.stop()
+
+
+exit_timer = MessageLoopTimer(exit)
+
+
+def on_connect():
+    devices.tokabo.brightness.set_normalized(1.0)
+    exit_timer.start(0.5)
+
+
+devices = AvailableDevices()
+devices.on_connect.add_listener(on_connect)
+```
+
+When the connection to the MQTT server is made, all queryable parameters will automatically be queried. This can lead to a period of 5-10 seconds where zigbee2mqtt will not really respond to any further request. To avoid this we should use the `--skip_initial_query` argument to `emkyoot quicklaunch`. So the command to launch this snippet would be
+
+```commandline
+> emkyoot quicklaunch --skip_initial_query snippet.py
+```
+
+This example executes the `on_connect` function upon connecting to the MQTT server. Then it waits for half a second, to give time to the background message loop to send the brightness change to the server. Then it stops the `message_loop` which leads to the termination of the entire application. This leads into the topic of threading.
+
+## About threading
+
+User code should generally assume that it's running on the *message thread*. The message thread is the thread that belongs to the emkyoot `message_loop`.
+
+The concept of the `message_loop` is necessary because it allows us to synchronize with the paho-mqtt thread, which is responsible for communicating with the MQTT server, and the flask thread, which is optionally present if a HTTP interface is provided using flask. It is useful, because it allows us to execute certain operations asynchronously. This allows emkyoot to collate multiple parameter updates into one and only communicate the changes to the MQTT server.
+
+Because of this approach it is generally fine to make lots of parameter changes in automation code. Only parameters that are changed will result in communication with the MQTT server, and when many parameters change at once, they will often be communicated in as few messages as possible.
+
+The key takeaway here, is that *callbacks exposed by emkyoot will be called on the message thread*. And parameter value changes should also be initiated from the message thread. So it's generally safe to access any public parameter function from any emkyoot callback function withouth the need for any synchronization.
+
+Flask service callbacks however will be called on the flask thread and consequently they should be synchronized if they need to acces device parameters. You can use the `message_loop.post_message` function for this synchronization. Here's an example for this technique.
+
+```
+from flask import Flask, request
+
+from automation import turn_off_everything, toggle_office
+from emkyoot.message_loop import message_loop
+
+app = Flask(__name__)
+
+
+@app.route("/emkyoot/post", methods=["POST"])
+def http_emkyoot_post():
+    payload = request.get_json()
+
+    def message_callback():
+        http_message_handler(payload)
+
+    message_loop.post_message(message_callback)
+
+    return "", 200
+```
+
+The `message_callback` function and consequently the `http_message_handler` function will be called on the message thread, so no synchronization is necessary beyond that point.
+
 ## Debugging your automations
 
 You can pass the `-v` or `--verbose` parameter to `quicklaunch` to set the logging level to `DEBUG`. For actual debugging with breakpoints and all, there are two options.
