@@ -56,21 +56,31 @@ This example executes the `on_connect` function upon connecting to the MQTT serv
 
 User code should generally assume that it's running on the *message thread*. The message thread is the thread that belongs to the emkyoot `message_loop`.
 
-The concept of the `message_loop` is necessary because it allows us to synchronize with the paho-mqtt thread, which is responsible for communicating with the MQTT server, and the flask thread, which is optionally present if a HTTP interface is provided using flask. It is useful, because it allows us to execute certain operations asynchronously. This allows emkyoot to collate multiple parameter updates into one and only communicate the changes to the MQTT server.
+The concept of the `message_loop` is necessary because it allows us to synchronize with the paho-mqtt thread, which is responsible for communicating with the MQTT server, and the flask thread, which is optionally present if an HTTP interface is provided using flask. And it is useful, because it allows us to execute certain operations asynchronously. This allows emkyoot to collate multiple parameter updates into one and only communicate the changes to the MQTT server.
 
 Because of this approach it is generally fine to make lots of parameter changes in automation code. Only parameters that are changed will result in communication with the MQTT server, and when many parameters change at once, they will often be communicated in as few messages as possible.
 
-The key takeaway here, is that *callbacks exposed by emkyoot will be called on the message thread*. And parameter value changes should also be initiated from the message thread. So it's generally safe to access any public parameter function from any emkyoot callback function withouth the need for any synchronization.
+The key takeaway here, is that *callbacks exposed by emkyoot will be called on the message thread*. And parameter value changes should also be initiated from the message thread. So it's generally safe to access any public parameter function from any emkyoot callback without the need for additional synchronization.
 
-Flask service callbacks however will be called on the flask thread and consequently they should be synchronized if they need to acces device parameters. You can use the `message_loop.post_message` function for this synchronization. Here's an example for this technique.
+The callback of `emkyoot.message_loop.MessageLoopTimer` is called on the message thread as well. But the callback of the built in `threading.Timer` is not, so don't use it without synchronization to access your devices.
+
+Flask service callbacks e.g. will be called on the flask thread and consequently they should be synchronized if they need to acces device parameters. You can use the `message_loop.post_message` function for this synchronization. Here's an example for this technique.
 
 ```
 from flask import Flask, request
 
-from automation import turn_off_everything, toggle_office
+from automation import turn_off_all_lights
 from emkyoot.message_loop import message_loop
 
 app = Flask(__name__)
+
+
+def http_message_handler(payload):
+    if "action" in payload:
+        action = payload["action"]
+
+        if action == "turn_off_all_lights":
+            turn_off_all_lights()
 
 
 @app.route("/emkyoot/post", methods=["POST"])
@@ -86,6 +96,8 @@ def http_emkyoot_post():
 ```
 
 The `message_callback` function and consequently the `http_message_handler` function will be called on the message thread, so no synchronization is necessary beyond that point.
+
+Another class that can be used either for synchronization, or for making a function call asynchronous, is `emkyoot.message_loop.AsyncUpdater`. You can call `AsyncUpdater._trigger_async_update()` from any thread and it will result in a call to `AsyncUpdater._handle_async_update()` on the message thread.
 
 ## Debugging your automations
 
