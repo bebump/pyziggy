@@ -68,30 +68,18 @@ class EnumClassGenerator:
         code: List[CodeLine] = []
 
         if self.enum_name_for_enum_values_storage:
-            code.append(
-                CodeLine(f"from enum import Enum\n\n", CodeIndent.NONE, CodeIndent.NONE)
-            )
+            code.append(CodeLine(f"from enum import Enum\n\n"))
 
         for (
             enum_values_storage,
             enum_name,
         ) in self.enum_name_for_enum_values_storage.items():
-            code.append(
-                CodeLine(
-                    f"class {enum_name}(Enum):", CodeIndent.NONE, CodeIndent.INDENT
-                )
-            )
+            code.append(CodeLine(f"class {enum_name}(Enum):", CodeIndent.INDENT))
 
             for value in enum_values_storage.enum_values:
-                code.append(
-                    CodeLine(
-                        f'{value.replace("/", "_")} = "{value}"',
-                        CodeIndent.NONE,
-                        CodeIndent.NONE,
-                    )
-                )
+                code.append(CodeLine(f'{value.replace("/", "_")} = "{value}"'))
 
-            code.append(CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT))
+            code.append(CodeLine("\n", CodeIndent.UNINDENT))
 
         return code
 
@@ -120,45 +108,31 @@ class EnumParameterGenerator:
             code.append(
                 CodeLine(
                     f"class {self.get_typename_for_parameter_for(enum)}(EnumParameter):",
-                    CodeIndent.NONE,
                     CodeIndent.INDENT,
                 )
             )
             code.append(
                 CodeLine(
                     f"def __init__(self, property: str, enum_values: List[str]):",
-                    CodeIndent.NONE,
                     CodeIndent.INDENT,
                 )
             )
-            code.append(
-                CodeLine(
-                    f"super().__init__(property, enum_values)",
-                    CodeIndent.NONE,
-                    CodeIndent.NONE,
-                )
-            )
-            code.append(
-                CodeLine(
-                    f"self.enum_type = {enum}\n", CodeIndent.NONE, CodeIndent.UNINDENT
-                )
-            )
+            code.append(CodeLine(f"super().__init__(property, enum_values)"))
+            code.append(CodeLine(f"self.enum_type = {enum}\n", CodeIndent.UNINDENT))
 
             code.append(
                 CodeLine(
                     f"def get_enum_value(self) -> {enum}:",
-                    CodeIndent.NONE,
                     CodeIndent.INDENT,
                 )
             )
             code.append(
                 CodeLine(
                     f"return int_to_enum({enum}, int(self.get()))",
-                    CodeIndent.NONE,
                     CodeIndent.UNINDENT,
                 )
             )
-            code.append(CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT))
+            code.append(CodeLine("\n", CodeIndent.UNINDENT))
 
         settable_enums = list(self.enum_names_for_settable)
         settable_enums.sort()
@@ -167,25 +141,22 @@ class EnumParameterGenerator:
             code.append(
                 CodeLine(
                     f"class {self.get_typename_for_settable_parameter_for(enum)}(SettableEnumParameter, {self.get_typename_for_parameter_for(enum)}):",
-                    CodeIndent.NONE,
                     CodeIndent.INDENT,
                 )
             )
             code.append(
                 CodeLine(
                     f"def set_enum_value(self, value: {enum}) -> None:",
-                    CodeIndent.NONE,
                     CodeIndent.INDENT,
                 )
             )
             code.append(
                 CodeLine(
                     "self.set(self._transform_mqtt_to_internal_value(value.value))",
-                    CodeIndent.NONE,
                     CodeIndent.UNINDENT,
                 )
             )
-            code.append(CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT))
+            code.append(CodeLine("\n", CodeIndent.UNINDENT))
 
         return code
 
@@ -250,9 +221,7 @@ class ClassGenerator:
         :return:
         """
 
-        init_code = [
-            CodeLine(", ".join(base_class_names), CodeIndent.NONE, CodeIndent.NONE)
-        ] + init_code
+        init_code = [CodeLine(", ".join(base_class_names))] + init_code
 
         if avoid_duplicate_class_impls:
             for k, v in self._classes.items():
@@ -280,16 +249,16 @@ class ClassGenerator:
 
             inherits = f"({lines[0].line})" if lines[0].line else ""
 
-            lines = [
-                CodeLine(f"class {name}{inherits}:", CodeIndent.NONE, CodeIndent.INDENT)
-            ] + lines[1:]
+            lines = [CodeLine(f"class {name}{inherits}:", CodeIndent.INDENT)] + lines[
+                1:
+            ]
 
-            if lines[-1] == CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT):
-                lines[-1] = CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)
-            elif lines[-1] == CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT):
-                lines[-1] = CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT2)
+            if lines[-1] == CodeLine("", CodeIndent.UNINDENT):
+                lines[-1] = CodeLine("", CodeIndent.UNINDENT2)
+            elif lines[-1] == CodeLine("\n", CodeIndent.UNINDENT):
+                lines[-1] = CodeLine("\n", CodeIndent.UNINDENT2)
             else:
-                lines += [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT)]
+                lines += [CodeLine("", CodeIndent.UNINDENT)]
 
             classes[name] = lines
 
@@ -375,7 +344,7 @@ class ClassSkeleton:
             else:
                 line += entry.initializer_expr.replace("$args", args_str)
 
-            init.append(CodeLine(line, CodeIndent.NONE, CodeIndent.NONE))
+            init.append(CodeLine(line))
 
         return init
 
@@ -539,12 +508,11 @@ def generate_class_skeleton(
                     [
                         CodeLine(
                             f"def __init__({', '.join(init_args)}):",
-                            CodeIndent.NONE,
                             CodeIndent.INDENT,
                         )
                     ]
                     + composite_skeleton.get_init()
-                    + [CodeLine("\n", CodeIndent.NONE, CodeIndent.UNINDENT)],
+                    + [CodeLine("\n", CodeIndent.UNINDENT)],
                     base_class_names=["CompositeParameter"],
                 )
 
@@ -591,19 +559,9 @@ from emkyoot.device_bases import *
     cg = ClassGenerator()
 
     available_devices: List[CodeLine] = [
-        CodeLine(
-            "class AvailableDevices(DevicesClient):", CodeIndent.NONE, CodeIndent.INDENT
-        ),
-        CodeLine(
-            "def __init__(self):",
-            CodeIndent.NONE,
-            CodeIndent.INDENT,
-        ),
-        CodeLine(
-            "super().__init__()",
-            CodeIndent.NONE,
-            CodeIndent.NONE,
-        ),
+        CodeLine("class AvailableDevices(DevicesClient):", CodeIndent.INDENT),
+        CodeLine("def __init__(self):", CodeIndent.INDENT),
+        CodeLine("super().__init__()"),
     ]
 
     for device_description in payload:
@@ -613,7 +571,7 @@ from emkyoot.device_bases import *
             continue
 
         init_lines: List[CodeLine] = [
-            CodeLine("def __init__(self, name):", CodeIndent.NONE, CodeIndent.INDENT)
+            CodeLine("def __init__(self, name):", CodeIndent.INDENT)
         ]
         base_class_names: List[str] = []
 
@@ -631,9 +589,7 @@ from emkyoot.device_bases import *
             base_args = ["self"]
             init_lines += [
                 CodeLine(
-                    f"{base_template.name}.__init__({', '.join(base_args + base_cls.get_init_arg_values())})",
-                    CodeIndent.NONE,
-                    CodeIndent.NONE,
+                    f"{base_template.name}.__init__({', '.join(base_args + base_cls.get_init_arg_values())})"
                 )
             ]
 
@@ -641,9 +597,7 @@ from emkyoot.device_bases import *
         init_lines += cls.get_init()
 
         init_lines += [
-            CodeLine(
-                "Device.__init__(self, name)", CodeIndent.NONE, CodeIndent.UNINDENT
-            ),
+            CodeLine("Device.__init__(self, name)", CodeIndent.UNINDENT),
             CodeLine(""),
         ]
 
@@ -658,13 +612,11 @@ from emkyoot.device_bases import *
 
         available_devices += [
             CodeLine(
-                f'self.{device_property_name} = {device_class_name}("{device.friendly_name}")',
-                CodeIndent.NONE,
-                CodeIndent.NONE,
+                f'self.{device_property_name} = {device_class_name}("{device.friendly_name}")'
             )
         ]
 
-    available_devices += [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)]
+    available_devices += [CodeLine("", CodeIndent.UNINDENT2)]
 
     code += cg._enum_class_generator.get_code_for_enum_class_definitions()
     code += cg._enum_parameter_generator.get_code_for_enum_parameter_definitions()
@@ -729,12 +681,11 @@ def generate_device_bases():
                 [
                     CodeLine(
                         f"def __init__({', '.join(init_args)}):",
-                        CodeIndent.NONE,
                         CodeIndent.INDENT,
                     )
                 ]
                 + skeleton.get_init()
-                + [CodeLine("", CodeIndent.NONE, CodeIndent.UNINDENT2)],
+                + [CodeLine("", CodeIndent.UNINDENT2)],
                 base_class_names=[b.name for b in base_classes],
             )
 
@@ -766,15 +717,13 @@ from emkyoot.parameters import (
     for class_name, class_code in cg.get_generated_classes().items():
         code += CodeLine.join("\n", class_code)
 
-    all_imports: List[CodeLine] = [
-        CodeLine("__all__ = [", CodeIndent.NONE, CodeIndent.INDENT)
-    ]
+    all_imports: List[CodeLine] = [CodeLine("__all__ = [", CodeIndent.INDENT)]
 
     for b in device_base_rules:
         if isinstance(b, BaseClassRequirement):
-            all_imports += [CodeLine(f"'{b.name}',", CodeIndent.NONE, CodeIndent.NONE)]
+            all_imports += [CodeLine(f"'{b.name}',")]
 
-    all_imports += [CodeLine("]", CodeIndent.NONE, CodeIndent.UNINDENT)]
+    all_imports += [CodeLine("]", CodeIndent.UNINDENT)]
 
     code += CodeLine.join("\n", all_imports)
 

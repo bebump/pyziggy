@@ -31,12 +31,10 @@ class CodeLine:
     def __init__(
         self,
         line: str = "",
-        preindent: CodeIndent = CodeIndent.NONE,
         postindent: CodeIndent = CodeIndent.NONE,
     ):
         assert isinstance(line, str)
         self.line = line
-        self.preindent = preindent
         self.postindent = postindent
 
     def __eq__(self, other):
@@ -44,7 +42,6 @@ class CodeLine:
             return False
         return (
             self.line == other.line
-            and self.preindent == other.preindent
             and self.postindent == other.postindent
         )
 
@@ -57,13 +54,6 @@ class CodeLine:
         indent_level = 0
 
         for line in lines:
-            if line.preindent == CodeIndent.INDENT:
-                indent_level += 1
-            elif line.preindent == CodeIndent.UNINDENT:
-                indent_level -= 1
-            elif line.preindent == CodeIndent.UNINDENT2:
-                indent_level -= 2
-
             if indent_level < 0:
                 indent_level = 0
 
