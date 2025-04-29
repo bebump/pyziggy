@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import List, Tuple, Callable
 from bisect import bisect_left
 
-from emkyoot.device_bases import DimmableLight
+from emkyoot.device_bases import LightWithDimming
 from emkyoot.message_loop import MessageLoopTimer
 
 
@@ -148,20 +148,20 @@ class Barriers:
 
 
 class ScaleMapper:
-    class _MockDimmableLight:
+    class _MockLightWithDimming:
         def __init__(self):
             self.state = MockSettableNumericParameter()
             self.brightness = MockSettableNumericParameter()
 
     def __init__(
         self,
-        adjustables: List[Tuple[DimmableLight, float, float]],
+        adjustables: List[Tuple[LightWithDimming, float, float]],
         barriers: list[float] = [],
         barrier_activation_callback: Callable[[], None] = lambda: None,
     ):
         super().__init__()
         self._adjustables: List[
-            Tuple[DimmableLight | ScaleMapper._MockDimmableLight, float, float]
+            Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float]
         ] = []
         self._barrier_callback = barrier_activation_callback
         self._barriers = Barriers(barriers, self._barrier_callback)
@@ -174,18 +174,18 @@ class ScaleMapper:
         x = self._adjustables[0][1] if self._adjustables else 0.0
 
         # This is to allow non-contiguous ranges
-        fake_lights: List[Tuple[ScaleMapper._MockDimmableLight, float, float]] = []
+        fake_lights: List[Tuple[ScaleMapper._MockLightWithDimming, float, float]] = []
 
         for adjustable in self._adjustables:
             if x < adjustable[1]:
-                fake_lights.append((ScaleMapper._MockDimmableLight(), x, adjustable[1]))
+                fake_lights.append((ScaleMapper._MockLightWithDimming(), x, adjustable[1]))
             x = adjustable[2]
 
         self._adjustables.extend(fake_lights)
 
     @staticmethod
     def get_value_on_scale(
-        adjustable: Tuple[DimmableLight | ScaleMapper._MockDimmableLight, float, float],
+        adjustable: Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float],
         increment: float,
     ):
         value = (
@@ -205,7 +205,7 @@ class ScaleMapper:
 
     @staticmethod
     def get_value_for_scale(
-        adjustable: Tuple[DimmableLight | ScaleMapper._MockDimmableLight, float, float],
+        adjustable: Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float],
         scale_value: float,
     ):
         low = adjustable[1]

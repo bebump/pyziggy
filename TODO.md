@@ -1,6 +1,2 @@
 - [ ] Generator: Set `action` parameters to use synchronous callbacks by default
-- [X] Make sanitise typename appropriately strict
-- [ ] Add X, Y colour handling
-- [ ] Add `LightWithColourTemp` and `LightWithColour`
-- [X] Tidy up the generator by allowing easier specification of `param_names: List[str]` -> `Device` super type
 - [ ] Time of day class?

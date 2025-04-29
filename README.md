@@ -23,7 +23,7 @@ You can pass the `-v` or `--verbose` parameter to `quicklaunch` to set the loggi
 
 ### Either import the command line interface in a Python script
 
-This is the easiest way. Create a new source file in your project e.g. `run_automation.py` with the following content.
+This is the easiest way. Create a new source file in your project e.g. `run_automation.py` with the following contents.
 
 ```
 from emkyoot import emkyoot

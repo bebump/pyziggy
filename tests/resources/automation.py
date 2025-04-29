@@ -2,14 +2,15 @@ from device_wrappers import (
     IkeaN2CommandRepeater,
     PhilipsTapDialRotaryHelper,
 )
+from emkyoot.device_bases import LightWithColorTemp
 from emkyoot.parameters import (
     SettableBinaryParameter,
     SettableToggleParameter,
     SettableAndQueryableBinaryParameter,
     SettableAndQueryableToggleParameter,
 )
-from emkyoot_autogenerate.available_devices import AvailableDevices, Device
-from util import ScaleMapper
+from emkyoot_autogenerate.available_devices import AvailableDevices, Philips_LCL007
+from util import ScaleMapper, clamp
 
 devices = AvailableDevices()
 
@@ -33,6 +34,12 @@ living_room = ScaleMapper(
 )
 
 
+def set_mired(mired):
+    for device in devices.get_devices():
+        if isinstance(device, LightWithColorTemp):
+            device.color_temp.set(mired)
+
+
 def ikea_remote_action_handler():
     action = devices.ikea_remote.action.get_enum_value()
     types = devices.ikea_remote.action.enum_type
@@ -47,18 +54,42 @@ def ikea_remote_action_handler():
     elif action == types.off:
         devices.dining_light_1.state.set(0)
         devices.dining_light_2.state.set(0)
+    elif action == types.arrow_left_click:
+        set_mired(417)
+    elif action == types.arrow_right_click:
+        set_mired(370)
 
 
 ikea_remote_action_broadcaster = IkeaN2CommandRepeater(devices.ikea_remote)
 ikea_remote_action_broadcaster.repeating_action.add_listener(ikea_remote_action_handler)
 
-philips_rotary_target = living_room
+
+def kitchen_dimmer(step: int):
+    kitchen.add(step / 8 * 0.022)
+
+
+def living_room_dimmer(step: int):
+    living_room.add(step / 8 * 0.022)
+
+
+def hue_changer(step: int):
+    for device in (devices.hue_lightstrip, devices.couch):
+        assert isinstance(device, Philips_LCL007)
+        device.color_hs.hue.set((device.color_hs.hue.get() + step) % 360)
+
+
+def saturation_changer(step: int):
+    for device in (devices.hue_lightstrip, devices.couch):
+        assert isinstance(device, Philips_LCL007)
+        device.color_hs.saturation.set(
+            clamp(device.color_hs.saturation.get() + step, 0, 100)
+        )
+
+
+philips_rotary_target = living_room_dimmer
 
 rotary_helper = PhilipsTapDialRotaryHelper(devices.philips_switch)
-rotary_helper.on_rotate.add_listener(
-    lambda step: philips_rotary_target.add(step / 8 * 0.022)
-)
-
+rotary_helper.on_rotate.add_listener(lambda step: philips_rotary_target(step))
 
 device_params_turned_off: list | None = None
 
@@ -68,10 +99,7 @@ def turn_off_everything():
 
     device_params_turned_off = []
 
-    for name, device in vars(devices).items():
-        if not isinstance(device, Device):
-            continue
-
+    for device in devices.get_devices():
         for property, param in vars(device).items():
             if property == "state":
                 if (
@@ -117,9 +145,13 @@ def philips_action_handler():
     action = devices.philips_switch.action.get_enum_value()
 
     if action == t.button_1_press:
-        philips_rotary_target = living_room
+        philips_rotary_target = living_room_dimmer
     if action == t.button_2_press:
-        philips_rotary_target = kitchen
+        philips_rotary_target = kitchen_dimmer
+    if action == t.button_3_press:
+        philips_rotary_target = hue_changer
+    if action == t.button_4_press:
+        philips_rotary_target = saturation_changer
     if action == t.button_1_hold and button_1_released:
         button_1_released = False
         turn_lights_off_and_on()

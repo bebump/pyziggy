@@ -141,13 +141,35 @@ class Device(MqttSubscriber, AsyncUpdater):
 
 
 class DevicesClient(MqttClient):
-    def __init__(self, skip_initial_query: bool = False):
+    """
+    A class that acts as a collection of devices, which also takes care of the
+    communication between these device objects and an MQTT server.
+
+    Attributes
+    ----------
+    on_connect : Broadcaster
+        Use add_listener on this Broadcaster object if you'd like to receive
+        a callback when a successful connection is established to the MQTT
+        server.
+
+    Methods
+    -------
+    get_devices():
+        Returns all Device members of the DevicesClient object. This can be a
+        handy way to iterate over all your devices.
+    """
+
+    def __init__(self):
         super().__init__()
-        self._skip_initial_query = skip_initial_query
-        self.on_connect = Broadcaster()
+        self._skip_initial_query: bool = False
+        self.on_connect: Broadcaster = Broadcaster()
 
     @final
     def get_devices(self) -> List[Device]:
+        """
+        Returns all Device members of the DevicesClient object. This can be a
+        handy way to iterate over all your devices.
+        """
         devices = []
 
         for key, device in vars(self).items():

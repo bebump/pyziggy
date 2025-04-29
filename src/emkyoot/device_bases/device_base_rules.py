@@ -24,7 +24,7 @@ from ..parser import ParameterAccessType
 from ..parser import ToggleParameterDefinition, NumericParameterDefinition, CompositeParameterDefinition
 
 dimmable_light = BaseClassRequirement(
-    "DimmableLight",
+    "LightWithDimming",
     [
         ToggleParameterDefinition(
             "state",
@@ -62,7 +62,7 @@ light_with_color_temp = BaseClassRequirement(
 )
 
 color_light = BaseClassRequirement(
-    "ColorLight",
+    "LightWithColor",
     [
         light_with_color_temp,
         CompositeParameterDefinition(

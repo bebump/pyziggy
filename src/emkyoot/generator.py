@@ -595,12 +595,12 @@ from emkyoot.device_bases import *
             "class AvailableDevices(DevicesClient):", CodeIndent.NONE, CodeIndent.INDENT
         ),
         CodeLine(
-            "def __init__(self, no_query: bool = False):",
+            "def __init__(self):",
             CodeIndent.NONE,
             CodeIndent.INDENT,
         ),
         CodeLine(
-            "super().__init__(no_query)",
+            "super().__init__()",
             CodeIndent.NONE,
             CodeIndent.NONE,
         ),
