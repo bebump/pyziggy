@@ -16,11 +16,14 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from abc import abstractmethod
 from enum import Enum
 from typing import Dict, Union, List, Any, final, Callable, override
 from typing import Type, TypeVar
+
+logger = logging.getLogger(__name__)
 
 
 class ListenerCancellationToken:
@@ -144,7 +147,7 @@ class NumericParameter(ParameterBase):
         return self._requested_value
 
     @final
-    def get_normalised(self) -> float:
+    def get_normalized(self) -> float:
         return (self.get() - self._min_value) / (self._max_value - self._min_value)
 
     @final
@@ -221,7 +224,7 @@ class SettableNumericParameter(NumericParameter):
             else:
                 self._wants_to_call_listeners_broadcaster._call_listeners()
 
-    def set_normalised(self, value: float) -> None:
+    def set_normalized(self, value: float) -> None:
         self.set(
             float(round(value * (self._max_value - self._min_value) + self._min_value))
         )
@@ -229,8 +232,8 @@ class SettableNumericParameter(NumericParameter):
     def add(self, value: float) -> None:
         self.set(self.get() + value)
 
-    def add_normalised(self, value: float) -> None:
-        self.set_normalised(self.get_normalised() + value)
+    def add_normalized(self, value: float) -> None:
+        self.set_normalized(self.get_normalized() + value)
 
 
 class QueryableNumericParameter(NumericParameter):
@@ -369,6 +372,12 @@ class CompositeParameter(ParameterBase):
     @final
     @override
     def _set_reported_value(self, value: Any) -> None:
+        if not isinstance(value, Dict):
+            logger.warning(
+                f"{self.get_property_name()} received {value}. I didn't think this was possible."
+            )
+            return
+
         for k, v in value.items():
             if k in self._parameters:
                 self._parameters[k]._set_reported_value(v)

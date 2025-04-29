@@ -72,17 +72,22 @@ devices = AvailableDevices()"""
         with open(devices_client_module_path, "w") as f:
             f.write(module_code)
 
-    quicklaunch(devices_client_module_path, config, args.skip_initial_query)
+    quicklaunch(
+        devices_client_module_path,
+        config,
+        skip_initial_query=args.skip_initial_query,
+        no_mypy=args.no_mypy,
+    )
 
 
 def main(args: List[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Maintains communications with an MQTT server and can run "
-                    "automations. It can automatically generate an automation "
-                    "project. It only needs an empty project directory and a "
-                    "name for the project Python file. "
-                    ""
-                    "E.g. `emkyoot quicklaunch path/to/empty_home_automation_dir/automation.py`",
+        "automations. It can automatically generate an automation "
+        "project. It only needs an empty project directory and a "
+        "name for the project Python file. "
+        ""
+        "E.g. `emkyoot quicklaunch path/to/empty_home_automation_dir/automation.py`",
     )
     parser.add_argument(
         "-v", "--verbose", help="enables debug level logging", action="store_true"
@@ -119,7 +124,16 @@ def main(args: List[str] | None = None):
         "For simple use-cases it should specifically instantiate an "
         "AvailableDevices(DevicesClient) object.",
     )
-    parser_quicklaunch.add_argument("--skip_initial_query", help="skips querying devices states on startup", action="store_true")
+    parser_quicklaunch.add_argument(
+        "--skip_initial_query",
+        help="skips querying devices states on startup",
+        action="store_true",
+    )
+    parser_quicklaunch.add_argument(
+        "--no_mypy",
+        help="skips running mypy on your project",
+        action="store_true",
+    )
 
     parser_quicklaunch.set_defaults(func=quicklaunch_cmd)
     parsed_args = parser.parse_args(args)

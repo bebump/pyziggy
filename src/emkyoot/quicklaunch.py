@@ -29,6 +29,7 @@ from typing import Optional, TypeVar, Type
 import toml
 from flask import Flask
 
+from .workarounds import workarounds
 from .devices_client import DevicesClient
 from .message_loop import message_loop
 
@@ -97,10 +98,10 @@ def regenerate_device_definitions(available_devices_path: Path, config: EmkyootC
     from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
-    generator.connect(config.host, config.port, config.keepalive, config.base_topic)
+    generator._connect(config.host, config.port, config.keepalive, config.base_topic)
 
     # The generator quits on its own when its job is finished
-    generator.loop_forever()
+    generator._loop_forever()
 
 
 def regenerate_available_devices(project_root: Path, config: EmkyootConfig):
@@ -225,14 +226,17 @@ def quicklaunch(
     devices_client_param: DevicesClient | Path,
     config: EmkyootConfig,
     skip_initial_query: bool = False,
+    no_mypy: bool = False,
     flask_app: Flask | None = None,
 ):
     devices_client_module_path = get_devices_client_module_path(devices_client_param)
 
     if devices_client_module_path is not None:
         regenerate_available_devices(devices_client_module_path.parent, config)
-        if run_mypy(devices_client_module_path) == False:
-            exit(1)
+
+        if not no_mypy:
+            if run_mypy(devices_client_module_path) == False:
+                exit(1)
 
     devices_client = (
         devices_client_param
@@ -251,17 +255,21 @@ def quicklaunch(
         else None
     )
 
+    workarounds._apply(devices_client)
+
     if skip_initial_query:
-        print("Using --skip_initial_query. Initial parameter values will not reflect the devices' true states.")
+        print(
+            "Using --skip_initial_query. Initial parameter values will not reflect the devices' true states."
+        )
         devices_client._set_skip_initial_query(True)
 
-    devices_client.connect(
+    devices_client._connect(
         config.host, config.port, config.keepalive, config.base_topic
     )
 
     print("Starting message loop. Send SIGINT (CTRL+C) to quit.")
 
-    devices_client.loop_forever()
+    devices_client._loop_forever()
 
     if flask_runner is not None:
         flask_runner.stop()

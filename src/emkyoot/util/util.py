@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from enum import IntEnum
-from typing import List, Tuple, Callable
+from abc import abstractmethod
 from bisect import bisect_left
+from enum import IntEnum
+from typing import List, Tuple, Callable, Any, override
 
 from emkyoot.device_bases import LightWithDimming
 from emkyoot.message_loop import MessageLoopTimer
@@ -20,23 +21,6 @@ def clamp(value: float, low: float, high: float) -> float:
     Clamps a value to the range [low, high].
     """
     return max(low, min(value, high))
-
-
-class MockSettableNumericParameter:
-    def __init__(self):
-        self.value = 0.0
-
-    def set(self, value):
-        self.value = clamp(value, 0, 1)
-
-    def get(self):
-        return self.value
-
-    def get_normalised(self):
-        return clamp(self.value, 0, 1)
-
-    def set_normalised(self, value):
-        self.value = clamp(value, 0, 1)
 
 
 class Barriers:
@@ -147,22 +131,59 @@ class Barriers:
         return self._set_last_value(value)
 
 
+class Scalable:
+    @abstractmethod
+    def set_normalized(self, value: float):
+        pass
+
+    @abstractmethod
+    def get_normalized(self) -> float:
+        pass
+
+
+class LightWithDimmingScalable(Scalable):
+    def __init__(self, light: LightWithDimming):
+        self._light = light
+
+    @override
+    def set_normalized(self, value: float):
+        self._light.brightness.set_normalized(value)
+
+        if value > 0:
+            self._light.state.set(1)
+        else:
+            self._light.state.set(0)
+
+    @override
+    def get_normalized(self) -> float:
+        return (
+            self._light.brightness.get_normalized()
+            if self._light.state.get() > 0
+            else 0
+        )
+
+
 class ScaleMapper:
-    class _MockLightWithDimming:
+    class _MockScalable(Scalable):
         def __init__(self):
-            self.state = MockSettableNumericParameter()
-            self.brightness = MockSettableNumericParameter()
+            self.value = 0.0
+
+        @override
+        def set_normalized(self, value):
+            self.value = clamp(value, 0, 1)
+
+        @override
+        def get_normalized(self):
+            return self.value
 
     def __init__(
         self,
-        adjustables: List[Tuple[LightWithDimming, float, float]],
+        adjustables: List[Tuple[Scalable, float, float]],
         barriers: list[float] = [],
-        barrier_activation_callback: Callable[[], None] = lambda: None,
+        barrier_activation_callback: Callable[[], Any] = lambda: None,
     ):
         super().__init__()
-        self._adjustables: List[
-            Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float]
-        ] = []
+        self._adjustables: List[Tuple[Scalable, float, float]] = []
         self._barrier_callback = barrier_activation_callback
         self._barriers = Barriers(barriers, self._barrier_callback)
 
@@ -174,25 +195,21 @@ class ScaleMapper:
         x = self._adjustables[0][1] if self._adjustables else 0.0
 
         # This is to allow non-contiguous ranges
-        fake_lights: List[Tuple[ScaleMapper._MockLightWithDimming, float, float]] = []
+        fake_lights: List[Tuple[Scalable, float, float]] = []
 
         for adjustable in self._adjustables:
             if x < adjustable[1]:
-                fake_lights.append((ScaleMapper._MockLightWithDimming(), x, adjustable[1]))
+                fake_lights.append((ScaleMapper._MockScalable(), x, adjustable[1]))
             x = adjustable[2]
 
         self._adjustables.extend(fake_lights)
 
     @staticmethod
     def get_value_on_scale(
-        adjustable: Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float],
+        adjustable: Tuple[Scalable, float, float],
         increment: float,
     ):
-        value = (
-            adjustable[0].brightness.get_normalised()
-            if adjustable[0].state.get() > 0
-            else 0
-        )
+        value = adjustable[0].get_normalized()
         low = adjustable[1]
         high = adjustable[2]
 
@@ -205,7 +222,7 @@ class ScaleMapper:
 
     @staticmethod
     def get_value_for_scale(
-        adjustable: Tuple[LightWithDimming | ScaleMapper._MockLightWithDimming, float, float],
+        adjustable: Tuple[Scalable, float, float],
         scale_value: float,
     ):
         low = adjustable[1]
@@ -236,58 +253,50 @@ class ScaleMapper:
 
         for adjustable in self._adjustables:
             new_value = ScaleMapper.get_value_for_scale(adjustable, scale_value)
-            adjustable[0].brightness.set_normalised(new_value)
-
-            if new_value > 0:
-                adjustable[0].state.set(1)
-            else:
-                adjustable[0].state.set(0)
+            adjustable[0].set_normalized(new_value)
 
 
 if __name__ == "__main__":
     from emkyoot.message_loop import MessageLoopTimer
 
-    timer = MessageLoopTimer(lambda x: print("Timer expired!"))
+    timer = MessageLoopTimer(lambda x: None)
 
-    b = Barriers([0.2, 0.5, 0.8], lambda: print("-----------------"))
+    b = Barriers([0.2, 0.5, 0.8])
 
-    def resep():
+    def reset_timer():
         print("reset")
         b._reset(timer)
 
-    def cump(val):
-        applied = b.apply(val)
-        print(f"{val} -> {applied}")
-        return applied
+    def apply_value(val):
+        return b.apply(val)
 
-    assert cump(0.1) == 0.1
-    assert cump(0.3) == 0.2
-    resep()
-    assert cump(0.6) == 0.5
-    assert cump(0.0) == 0.2
-    assert cump(1.0) == 0.5
-    resep()
-    assert cump(0.75) == 0.75
-    assert cump(0.48) == 0.5
-    resep()
-    assert cump(0.4) == 0.4
-    cump(0.51)
-    resep()
-    cump(0.0)
-    resep()
-    cump(0.0)
-    cump(0.25)
-    resep()
-    cump(0.52)
-    resep()
-    cump(0.1)
+    assert apply_value(0.1) == 0.1
+    assert apply_value(0.3) == 0.2
+    reset_timer()
+    assert apply_value(0.6) == 0.5
+    assert apply_value(0.0) == 0.2
+    assert apply_value(1.0) == 0.5
+    reset_timer()
+    assert apply_value(0.75) == 0.75
+    assert apply_value(0.48) == 0.5
+    reset_timer()
+    assert apply_value(0.4) == 0.4
+    apply_value(0.51)
+    reset_timer()
+    apply_value(0.0)
+    reset_timer()
+    apply_value(0.0)
+    apply_value(0.25)
+    reset_timer()
+    apply_value(0.52)
+    reset_timer()
+    apply_value(0.1)
 
-    print("==============================")
-    b = Barriers([0.55, 0.94], lambda: print("-----------------"))
-    assert cump(0) == 0
-    assert cump(0.6) == 0.55
-    resep()
-    assert cump(0.96) == 0.94
-    resep()
-    assert cump(0.83) == 0.83
-    assert cump(0.2) == 0.55
+    b = Barriers([0.55, 0.94])
+    assert apply_value(0) == 0
+    assert apply_value(0.6) == 0.55
+    reset_timer()
+    assert apply_value(0.96) == 0.94
+    reset_timer()
+    assert apply_value(0.83) == 0.83
+    assert apply_value(0.2) == 0.55

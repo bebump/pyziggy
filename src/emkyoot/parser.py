@@ -89,6 +89,9 @@ class ParameterBaseDefinition:
 
 
 class NumericParameterDefinition(ParameterBaseDefinition):
+    MISSING_VALUE_MIN = -(2**31)
+    MISSING_VALUE_MAX = 2**31 - 1
+
     def __init__(
         self,
         property: str,
@@ -114,8 +117,8 @@ class NumericParameterDefinition(ParameterBaseDefinition):
                 feature["property"],
                 feature["name"],
                 feature["access"],
-                feature["value_min"] if "value_min" in feature else -(2**31),
-                feature["value_max"] if "value_max" in feature else 2**31 - 1,
+                feature["value_min"] if "value_min" in feature else NumericParameterDefinition.MISSING_VALUE_MIN,
+                feature["value_max"] if "value_max" in feature else NumericParameterDefinition.MISSING_VALUE_MAX,
             )
         except:
             return None

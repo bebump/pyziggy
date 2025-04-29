@@ -82,16 +82,16 @@ class MqttClient:
         self._base_topic: str = ""
 
     @final
-    def connect(self, host, port, keepalive, base_topic: str):
+    def _connect(self, host, port, keepalive, base_topic: str):
         self._base_topic = base_topic
         self._mqttc.connect(host, port, keepalive)
 
     @final
-    def disconnect(self):
+    def _disconnect(self):
         self._should_disconnect = True
 
     @final
-    def loop_forever(self):
+    def _loop_forever(self):
         self._mqttc.loop_start()
         message_loop.run()
         self._mqttc.disconnect()

@@ -1,2 +1,2 @@
-- [ ] Generator: Set `action` parameters to use synchronous callbacks by default
-- [ ] Time of day class?
+- [ ] Add password authentication to MQTT
+- [ ] Time of day class

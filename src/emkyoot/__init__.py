@@ -20,3 +20,4 @@ from . import devices_client as devices_client
 from .quicklaunch import quicklaunch, EmkyootConfig
 from . import message_loop
 from .cli import main as emkyoot
+from .workarounds import workarounds as workarounds

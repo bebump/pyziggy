@@ -1,25 +1,44 @@
-from device_wrappers import (
+import os
+from pathlib import Path
+
+from device_helpers import (
     IkeaN2CommandRepeater,
     PhilipsTapDialRotaryHelper,
 )
-from emkyoot.device_bases import LightWithColorTemp
+from emkyoot.device_bases import LightWithColorTemp, LightWithColor
 from emkyoot.parameters import (
     SettableBinaryParameter,
     SettableToggleParameter,
     SettableAndQueryableBinaryParameter,
     SettableAndQueryableToggleParameter,
 )
-from emkyoot_autogenerate.available_devices import AvailableDevices, Philips_LCL007
-from util import ScaleMapper, clamp
+from emkyoot.util import LightWithDimmingScalable as L2S
+from emkyoot.util import ScaleMapper
+from emkyoot_autogenerate.available_devices import AvailableDevices
+
+
+# Interprets the provided path constituents relative to the location of this
+# script, and returns an absolute Path to the resulting location.
+#
+# E.g. rel_to_py(".") returns an absolute path to the directory containing this
+# script.
+def rel_to_py(*paths) -> Path:
+    return Path(
+        os.path.realpath(
+            os.path.join(os.path.realpath(os.path.dirname(__file__)), *paths)
+        )
+    )
+
 
 devices = AvailableDevices()
 
+
 kitchen = ScaleMapper(
     [
-        (devices.hue_lightstrip, 0.0, 0.54),
-        (devices.dining_light_1, 0.56, 0.93),
-        (devices.dining_light_2, 0.56, 0.93),
-        (devices.kitchen_light, 0.95, 1.0),
+        (L2S(devices.hue_lightstrip), 0.0, 0.54),
+        (L2S(devices.dining_light_1), 0.56, 0.93),
+        (L2S(devices.dining_light_2), 0.56, 0.93),
+        (L2S(devices.kitchen_light), 0.95, 1.0),
     ],
     [0.55, 0.94],
     lambda: print("\a"),
@@ -27,9 +46,9 @@ kitchen = ScaleMapper(
 
 living_room = ScaleMapper(
     [
-        (devices.standing_lamp, 0.0, 0.7),
-        (devices.couch, 0.2, 0.7),
-        (devices.reading_lamp, 0.7, 1.0),
+        (L2S(devices.standing_lamp), 0.0, 0.7),
+        (L2S(devices.couch), 0.2, 0.7),
+        (L2S(devices.reading_lamp), 0.7, 1.0),
     ]
 )
 
@@ -73,23 +92,21 @@ def living_room_dimmer(step: int):
 
 
 def hue_changer(step: int):
-    for device in (devices.hue_lightstrip, devices.couch):
-        assert isinstance(device, Philips_LCL007)
-        device.color_hs.hue.set((device.color_hs.hue.get() + step) % 360)
+    for device in devices.get_devices():
+        if isinstance(device, LightWithColor):
+            device.color_hs.hue.set((device.color_hs.hue.get() + step) % 360)
 
 
 def saturation_changer(step: int):
-    for device in (devices.hue_lightstrip, devices.couch):
-        assert isinstance(device, Philips_LCL007)
-        device.color_hs.saturation.set(
-            clamp(device.color_hs.saturation.get() + step, 0, 100)
-        )
+    for device in devices.get_devices():
+        if isinstance(device, LightWithColor):
+            device.color_hs.saturation.add(step)
 
 
-philips_rotary_target = living_room_dimmer
+philips_dial_handler = living_room_dimmer
 
 rotary_helper = PhilipsTapDialRotaryHelper(devices.philips_switch)
-rotary_helper.on_rotate.add_listener(lambda step: philips_rotary_target(step))
+rotary_helper.on_rotate.add_listener(lambda step: philips_dial_handler(step))
 
 device_params_turned_off: list | None = None
 
@@ -100,8 +117,11 @@ def turn_off_everything():
     device_params_turned_off = []
 
     for device in devices.get_devices():
-        for property, param in vars(device).items():
-            if property == "state":
+        if device == devices.toilet:
+            continue
+
+        for name, param in vars(device).items():
+            if name == "state":
                 if (
                     isinstance(param, SettableBinaryParameter)
                     or isinstance(param, SettableAndQueryableBinaryParameter)
@@ -126,93 +146,34 @@ def turn_things_back_on():
     device_params_turned_off = None
 
 
-def turn_lights_off_and_on():
-    global device_params_turned_off
-
-    if device_params_turned_off is None:
-        turn_off_everything()
-    else:
-        turn_things_back_on()
-
-
 button_1_released = True
+button_2_released = True
 
 
-def philips_action_handler():
-    global philips_rotary_target, button_1_released
+def philips_button_handler():
+    global philips_dial_handler, button_1_released, button_2_released
 
     t = devices.philips_switch.action.enum_type
     action = devices.philips_switch.action.get_enum_value()
 
     if action == t.button_1_press:
-        philips_rotary_target = living_room_dimmer
+        philips_dial_handler = living_room_dimmer
     if action == t.button_2_press:
-        philips_rotary_target = kitchen_dimmer
+        philips_dial_handler = kitchen_dimmer
     if action == t.button_3_press:
-        philips_rotary_target = hue_changer
+        philips_dial_handler = hue_changer
     if action == t.button_4_press:
-        philips_rotary_target = saturation_changer
+        philips_dial_handler = saturation_changer
     if action == t.button_1_hold and button_1_released:
         button_1_released = False
-        turn_lights_off_and_on()
+        turn_off_everything()
+    if action == t.button_2_hold and button_2_released:
+        button_2_released = False
+        turn_things_back_on()
     if action == t.button_1_hold_release:
         button_1_released = True
+    if action == t.button_2_hold_release:
+        button_2_released = True
 
 
-devices.philips_switch.action.add_listener(philips_action_handler)
-
-
-def http_message_handler(payload):
-    if "action" in payload:
-        action = payload["action"]
-
-        if action == "turn_off_all_lights":
-            turn_lights_off_and_on()
-
-
-# ==============================================================================
-from flask import Flask, request
-from emkyoot.message_loop import message_loop
-
-app = Flask(__name__)
-
-
-@app.route("/emkyoot")
-def http_emkyoot_help():
-    return (
-        """Send commands to <code>/emkyoot/post</code>.</br>
-</br>
-Possible commands are:</br>
-* <code>{"action": "turn_off_all_lights"}</code>
-""",
-        200,
-    )
-
-
-@app.route("/emkyoot/post", methods=["POST"])
-def http_emkyoot_post():
-    payload = request.get_json()
-
-    def message_callback():
-        http_message_handler(payload)
-
-    message_loop.post_message(message_callback)
-
-    return "", 200
-
-
-# ==============================================================================
-# This is meant for debugging purposes. You can also run this automation by issuing
-# `emkyoot quicklaunch automation.py` in the terminal.
-if __name__ == "__main__":
-    import logging
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    # This is an alternative way to run the devices_client intended to help with debugging
-    from emkyoot import quicklaunch, EmkyootConfig
-
-    config = EmkyootConfig.load("config.toml")
-
-    if config is not None:
-        quicklaunch(devices, config)
+devices.philips_switch.action.add_listener(philips_button_handler)

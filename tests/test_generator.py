@@ -44,7 +44,7 @@ class TestStringMethods(unittest.TestCase):
 
         generate_devices_client(devices_json, autogenerate_dir / "available_devices.py")
 
-        for artifact in ["automation.py", "device_wrappers.py", "util.py"]:
+        for artifact in ["automation.py", "device_helpers.py"]:
             shutil.copy(rel_to_py("resources", artifact), test_build_dir / artifact)
 
         mypy_pass = run_mypy(test_build_dir / "automation.py")

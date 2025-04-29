@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import final, override, Dict, Any, List
 
@@ -24,9 +25,10 @@ from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber
 from .parameters import (
     ParameterBase,
-    NumericParameter,
     QueryableNumericParameter,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Device(MqttSubscriber, AsyncUpdater):
@@ -38,7 +40,7 @@ class Device(MqttSubscriber, AsyncUpdater):
         self._in_on_message = False
 
     @final
-    def _get_parameters(self):
+    def get_parameters(self) -> List[ParameterBase]:
         params: List[ParameterBase] = []
 
         for k, ps in self._parameters.items():
@@ -53,7 +55,14 @@ class Device(MqttSubscriber, AsyncUpdater):
         for k, v in payload.items():
             if k in self._parameters.keys():
                 for p in self._parameters[k]:
-                    p._set_reported_value(v)
+                    if v is None:
+                        # Sometimes a null value is sent by z2m. For example the
+                        # "identify" enum property, which only has a single value
+                        # "identify", will receive an update, where the value is
+                        # null (translated to None at this point).
+                        pass
+                    else:
+                        p._set_reported_value(v)
 
         self._in_on_message = False
         self._execute_synchronous_parameter_callbacks()
@@ -94,7 +103,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     # @internal
     @override
     def _handle_async_update(self):
-        for param in self._get_parameters():
+        for param in self.get_parameters():
             param._call_listeners_if_necessary()
 
         if not self.is_connected():
@@ -122,7 +131,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     def _publish_changes(self):
         mqtt_update: Dict[str, Any] = {}
 
-        for param in self._get_parameters():
+        for param in self.get_parameters():
             param._append_dictionary_sent_to_device(mqtt_update)
 
         if mqtt_update:
@@ -132,7 +141,7 @@ class Device(MqttSubscriber, AsyncUpdater):
     def _query_parameters(self):
         mqtt_query: Dict[str, Any] = {}
 
-        for param in self._get_parameters():
+        for param in self.get_parameters():
             if param._should_device_be_queryied():
                 mqtt_query[param.get_property_name()] = ""
 
