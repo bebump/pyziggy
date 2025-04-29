@@ -1,2 +1,1 @@
-- [ ] Add password authentication to MQTT
 - [ ] Time of day class
