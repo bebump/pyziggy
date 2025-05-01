@@ -92,11 +92,38 @@ def make_action_enum_parameters_use_sync_callbacks(dc: DevicesClient):
                 parameter.set_use_synchronous_broadcast(True)
 
 
+def make_setting_color_invalidate_color_temp(dc: DevicesClient):
+    for device in dc.get_devices():
+        if isinstance(device, LightWithColor):
+            device.color_hs.add_listener(
+                lambda: [
+                    device.color_temp.mark_as_stale(),
+                    device.color_xy.mark_as_stale(),
+                ]
+            )
+            device.color_xy.add_listener(
+                lambda: [
+                    device.color_temp.mark_as_stale(),
+                    device.color_hs.mark_as_stale(),
+                ]
+            )
+            device.color_temp.add_listener(
+                lambda: [
+                    device.color_hs.mark_as_stale(),
+                    device.color_xy.mark_as_stale(),
+                ]
+            )
+
+
 class Workarounds:
     def __init__(self):
         self.fix_light_with_color_min_max_values = Workaround(
             fix_light_with_color_min_max_values,
             "Modifying LightWithColor devices. Changing hue limits to [0, 360] and saturation limits to [0, 100].",
+        )
+        self.make_setting_color_invalidate_color_temp = Workaround(
+            make_setting_color_invalidate_color_temp,
+            "Modifying LightWithColor devices. Setting hs, xy or color_temp will invalidate the other two.",
         )
         self.make_action_enum_parameters_use_sync_callbacks = Workaround(
             make_action_enum_parameters_use_sync_callbacks,
@@ -116,7 +143,9 @@ class Workarounds:
         if not any([wa._enabled for wa in self._get_workarounds()]):
             return
 
-        print("Applying workarounds. See the documentation in the emkyoot.workarounds module if you want to disable them.")
+        print(
+            "Applying workarounds. See the documentation in the emkyoot.workarounds module if you want to disable them."
+        )
 
         for wa in self._get_workarounds():
             if not wa._enabled:
@@ -124,7 +153,6 @@ class Workarounds:
 
             print(f"* {wa._description}")
             wa._callable(dc)
-
 
 
 workarounds = Workarounds()
