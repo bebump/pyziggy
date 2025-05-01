@@ -5,8 +5,9 @@ from bisect import bisect_left
 from enum import IntEnum
 from typing import List, Tuple, Callable, Any, override
 
-from emkyoot.device_bases import LightWithDimming
-from emkyoot.message_loop import MessageLoopTimer
+from ..device_bases import LightWithDimming
+from ..devices_client import DevicesClient
+from ..message_loop import MessageLoopTimer, message_loop
 
 
 def map_linear(value: float, low: float, high: float) -> float:
@@ -256,47 +257,21 @@ class ScaleMapper:
             adjustable[0].set_normalized(new_value)
 
 
-if __name__ == "__main__":
-    from emkyoot.message_loop import MessageLoopTimer
+class RunThenExit:
+    def __init__(self, devices: DevicesClient, callback: Callable[[], Any]):
+        self._callback = callback
+        self._timer = MessageLoopTimer(self._run)
+        self._callback_count = 0
 
-    timer = MessageLoopTimer(lambda x: None)
+        devices.on_connect.add_listener(lambda: self._timer.start(1))
 
-    b = Barriers([0.2, 0.5, 0.8])
+    def _run(self, timer: MessageLoopTimer):
+        if self._callback_count == 0:
+            self._callback()
 
-    def reset_timer():
-        print("reset")
-        b._reset(timer)
+        elif self._callback_count == 1:
+            timer.stop()
+            message_loop.stop()
 
-    def apply_value(val):
-        return b.apply(val)
+        self._callback_count += 1
 
-    assert apply_value(0.1) == 0.1
-    assert apply_value(0.3) == 0.2
-    reset_timer()
-    assert apply_value(0.6) == 0.5
-    assert apply_value(0.0) == 0.2
-    assert apply_value(1.0) == 0.5
-    reset_timer()
-    assert apply_value(0.75) == 0.75
-    assert apply_value(0.48) == 0.5
-    reset_timer()
-    assert apply_value(0.4) == 0.4
-    apply_value(0.51)
-    reset_timer()
-    apply_value(0.0)
-    reset_timer()
-    apply_value(0.0)
-    apply_value(0.25)
-    reset_timer()
-    apply_value(0.52)
-    reset_timer()
-    apply_value(0.1)
-
-    b = Barriers([0.55, 0.94])
-    assert apply_value(0) == 0
-    assert apply_value(0.6) == 0.55
-    reset_timer()
-    assert apply_value(0.96) == 0.94
-    reset_timer()
-    assert apply_value(0.83) == 0.83
-    assert apply_value(0.2) == 0.55

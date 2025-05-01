@@ -1,11 +1,12 @@
 from .util import Barriers as Barriers
 from .util import LightWithDimmingScalable as LightWithDimmingScalable
 from .util import ScaleMapper as ScaleMapper
-from .util import map_linear, clamp, LightWithDimmingScalable
+from .util import map_linear, clamp, LightWithDimmingScalable, RunThenExit
 
 __all__ = [
     "map_linear",
     "clamp",
     "ScaleMapper",
     "LightWithDimmingScalable",
+    "RunThenExit"
 ]
