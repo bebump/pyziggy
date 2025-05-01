@@ -208,10 +208,21 @@ class NumericParameter(ParameterBase):
 
 
 class SettableNumericParameter(NumericParameter):
+    def __init__(self, property: str, min_value: float, max_value: float):
+        super().__init__(property, min_value, max_value)
+        self._stale = True
+
+    def mark_as_stale(self):
+        """
+        Mark the parameter as stale. This is used to force an update to the
+        device when the parameter is set, even if the value has not changed.
+        """
+        self._stale = True
+
     def set(self, value: float) -> None:
         value = min(self._max_value, max(self._min_value, value))
 
-        if value != self.get():
+        if value != self.get() or self._stale:
             self._requested_value = min(self._max_value, max(self._min_value, value))
             self._requested_timestamp = time.perf_counter()
             self._should_send_to_device = True
@@ -223,6 +234,8 @@ class SettableNumericParameter(NumericParameter):
                 )
             else:
                 self._wants_to_call_listeners_broadcaster._call_listeners()
+
+        self._stale = False
 
     def set_normalized(self, value: float) -> None:
         self.set(
@@ -351,6 +364,16 @@ class CompositeParameter(ParameterBase):
         return [
             param for _, param in vars(self).items() if isinstance(param, ParameterBase)
         ]
+
+    @final
+    def mark_as_stale(self):
+        """
+        Mark the parameter as stale. This is used to force an update to the
+        device when the parameter is set, even if the value has not changed.
+        """
+        for param in self._get_subparameters():
+            if isinstance(param, SettableNumericParameter):
+                param.mark_as_stale()
 
     @final
     @override
