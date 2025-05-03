@@ -158,10 +158,7 @@ class NumericParameter(ParameterBase):
         old_reported_timestamp = self._reported_timestamp
         new_reported_timestamp = time.perf_counter()
 
-        if old_value != new_value or (
-            self._reported_value_is_probably_up_to_date()
-            and new_reported_timestamp > old_reported_timestamp
-        ):
+        if old_value != new_value:
             if self._use_synchronous_callbacks:
                 self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
                     lambda callback: callback(self)
