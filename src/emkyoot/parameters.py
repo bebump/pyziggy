@@ -39,7 +39,7 @@ class Broadcaster:
     def __init__(self):
         self._listeners: Dict[int, Callable[[], None]] = {}
 
-    def add_listener(self, callback: Callable[[], None]) -> ListenerCancellationToken:
+    def add_listener(self, callback: Callable[[], Any]) -> ListenerCancellationToken:
         listener_id = len(self._listeners)
         self._listeners[listener_id] = callback
         return ListenerCancellationToken(self, listener_id)
