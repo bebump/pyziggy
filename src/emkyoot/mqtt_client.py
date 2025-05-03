@@ -82,7 +82,7 @@ class MqttClient:
         self._base_topic: str = ""
 
     @final
-    def _connect(self, host, port, keepalive, base_topic: str, use_tls: bool = False, username: str = None, password: str = None):
+    def _connect(self, host, port, keepalive, base_topic: str, use_tls: bool = False, username: str | None = None, password: str | None = None):
         self._base_topic = base_topic
 
         if use_tls:

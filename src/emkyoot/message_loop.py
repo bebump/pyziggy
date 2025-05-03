@@ -21,6 +21,8 @@ from abc import abstractmethod
 from threading import Timer
 from typing import Callable, Dict, Any, final
 
+from .broadcasters import Broadcaster
+
 
 class Singleton(type):
     _instances: Dict[type, Any] = {}
@@ -57,6 +59,7 @@ class AtomicInteger:
 
 class MessageLoop(metaclass=Singleton):
     def __init__(self):
+        self.on_stop = Broadcaster()
         self._condition = threading.Condition()
         self._loop_should_quit: bool = False
         self._messages = []
@@ -86,6 +89,8 @@ class MessageLoop(metaclass=Singleton):
                 m()
 
     def stop(self):
+        self.on_stop._call_listeners()
+
         with self._condition:
             self._loop_should_quit = True
             self._condition.notify()
@@ -121,10 +126,10 @@ class MessageLoopTimer:
         self._should_stop = False
         self._duration: float = 0
 
-    def start(self, duration: float):
-        if self._timer is not None:
-            self._timer.cancel()
+        message_loop.on_stop.add_listener(self.stop)
 
+    def start(self, duration: float):
+        self._timer.cancel()
         self._should_stop = False
         self._duration = duration
         self._timer = Timer(duration, self._timer_callback)
