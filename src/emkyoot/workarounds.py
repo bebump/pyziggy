@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .device_bases import LightWithColor
+from .device_bases import LightWithColor, LightWithColorTemp
 from .devices_client import DevicesClient
 from .parameters import EnumParameter
 from .parser import NumericParameterDefinition
@@ -92,27 +92,45 @@ def make_action_enum_parameters_use_sync_callbacks(dc: DevicesClient):
                 parameter.set_use_synchronous_broadcast(True)
 
 
-def make_setting_color_invalidate_color_temp(dc: DevicesClient):
+def make_setting_color_invalidate_color(dc: DevicesClient):
+    def hs_was_set(device: LightWithColor):
+        device.color_temp.mark_as_stale()
+        device.color_xy.mark_as_stale()
+
+    def xy_was_set(device: LightWithColor):
+        device.color_hs.mark_as_stale()
+        device.color_temp.mark_as_stale()
+
+    def color_temp_was_set(device: LightWithColor):
+        device.color_hs.mark_as_stale()
+        device.color_xy.mark_as_stale()
+
     for device in dc.get_devices():
         if isinstance(device, LightWithColor):
-            device.color_hs.add_listener(
-                lambda: [
-                    device.color_temp.mark_as_stale(),
-                    device.color_xy.mark_as_stale(),
-                ]
-            )
-            device.color_xy.add_listener(
-                lambda: [
-                    device.color_temp.mark_as_stale(),
-                    device.color_hs.mark_as_stale(),
-                ]
-            )
-            device.color_temp.add_listener(
-                lambda: [
-                    device.color_hs.mark_as_stale(),
-                    device.color_xy.mark_as_stale(),
-                ]
-            )
+            device.color_hs.hue.add_listener(lambda d=device: hs_was_set(d), -1)  # type: ignore
+            device.color_hs.saturation.add_listener(lambda d=device: hs_was_set(d), -1)  # type: ignore
+            device.color_xy.x.add_listener(lambda d=device: xy_was_set(d), -1)  # type: ignore
+            device.color_xy.y.add_listener(lambda d=device: xy_was_set(d), -1)  # type: ignore
+            device.color_temp.add_listener(lambda d=device: color_temp_was_set(d), -1)  # type: ignore
+
+
+def make_setting_state_invalidate_color_temp(dc: DevicesClient):
+    """
+    If we send color parameter changes to a device that is turned off, it will
+    be likely to ignore it. Z2M however will send the info to the device, and
+    even in its internal state, Z2M will believe that the light has this new
+    color value.
+
+    So it can happen that the device is turned on, has the wrong color, but both
+    Z2M and emkyoot thinks it has the right color, hence it won't even send a
+    new parameter change with the same value.
+
+    Marking the parameters stale ensures, that whatever color we set after the
+    device turns on, will be sent to it.
+    """
+    for device in dc.get_devices():
+        if isinstance(device, LightWithColorTemp):
+            device.state.add_listener(lambda d=device: d.color_temp.mark_as_stale(), -1)  # type: ignore
 
 
 class Workarounds:
@@ -121,9 +139,13 @@ class Workarounds:
             fix_light_with_color_min_max_values,
             "Modifying LightWithColor devices. Changing hue limits to [0, 360] and saturation limits to [0, 100].",
         )
-        self.make_setting_color_invalidate_color_temp = Workaround(
-            make_setting_color_invalidate_color_temp,
+        self.make_setting_color_invalidate_color = Workaround(
+            make_setting_color_invalidate_color,
             "Modifying LightWithColor devices. Setting hs, xy or color_temp will invalidate the other two.",
+        )
+        self.make_setting_state_invalidate_color_temp = Workaround(
+            make_setting_state_invalidate_color_temp,
+            "Modifying LightWithColorTemp devices. Marking all color related params stale when the device is turned on.",
         )
         self.make_action_enum_parameters_use_sync_callbacks = Workaround(
             make_action_enum_parameters_use_sync_callbacks,
