@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from bisect import bisect_left
 from enum import IntEnum
-from typing import List, Tuple, Callable, Any, override
+from typing import List, Tuple, Callable, Any, override, final
 
 from ..device_bases import LightWithDimming
 from ..devices_client import DevicesClient
@@ -275,3 +275,56 @@ class RunThenExit:
 
         self._callback_count += 1
 
+
+class TimedRunner:
+    def __init__(self, client: DevicesClient):
+        self._timer = MessageLoopTimer(self._timer_callback)
+        self._wait_id_to_run = -1
+        self._wait_id = 0
+        self._can_run = True
+        self._next_wait_interval: float = 0
+        self._quit_now = False
+
+        client.on_connect.add_listener(self._setup_next_callback)
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    @final
+    def wait(self, seconds):
+        activated = self._wait_id == self._wait_id_to_run
+        self._wait_id += 1
+
+        if not activated:
+            return False
+
+        self._next_wait_interval = seconds
+
+        return self._can_run
+
+    def _setup_next_callback(self):
+        self._wait_id_to_run += 1
+
+        self._can_run = False
+        self._wait_id = 0
+        self.run()
+
+        if self._wait_id <= self._wait_id_to_run:
+            self._next_wait_interval = 0.5
+            self._quit_now = True
+
+        self._timer.start(self._next_wait_interval)
+
+    def _timer_callback(self, timer: MessageLoopTimer):
+        timer.stop()
+
+        if self._quit_now:
+            message_loop.stop()
+            return
+
+        self._can_run = True
+        self._wait_id = 0
+        self.run()
+
+        self._setup_next_callback()
