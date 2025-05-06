@@ -1,4 +1,4 @@
-from typing import Dict, Callable, Any
+from typing import Callable, Any
 
 
 class ListenerCancellationToken:
@@ -11,34 +11,106 @@ class ListenerCancellationToken:
 
 
 class Broadcaster:
-    def __init__(self):
-        self._listeners: Dict[int, Callable[[], None]] = {}
+    class Listener:
+        def __init__(self, callback: Callable[[], Any], id: int, order: int):
+            self._callback = callback
+            self._id = id
+            self._order = order
 
-    def add_listener(self, callback: Callable[[], Any]) -> ListenerCancellationToken:
-        listener_id = len(self._listeners)
-        self._listeners[listener_id] = callback
+    def __init__(self):
+        self._next_listener_id = 0
+        self._listeners: list[Broadcaster.Listener] = []
+
+    def _get_next_listener_id(self) -> int:
+        listener_id = self._next_listener_id
+        self._next_listener_id += 1
+        return listener_id
+
+    def add_listener(
+        self, callback: Callable[[], Any], order: int = 100
+    ) -> ListenerCancellationToken:
+        """
+        Order affects where the listener will be inserted relative to others. The minimum value of -1
+        means the listener will be inserted in front of all others. The default value is 100. There
+        is no maximum, other than whatever int can hold.
+        """
+        assert order >= -1
+
+        listener_id = self._get_next_listener_id()
+        listener = Broadcaster.Listener(callback, listener_id, order)
+
+        for i, existing_listener in enumerate(self._listeners):
+            if existing_listener._order >= order:
+                self._listeners.insert(i, listener)
+                break
+        else:
+            self._listeners.append(listener)
+
         return ListenerCancellationToken(self, listener_id)
 
     def _call_listeners(self):
-        for k, listener in self._listeners.items():
-            listener()
+        for listener in self._listeners:
+            listener._callback()
 
     def _remove_listener(self, listener_id: int) -> None:
-        del self._listeners[listener_id]
+        for i, listener in enumerate(self._listeners):
+            if listener._id == listener_id:
+                del self._listeners[i]
+                break
+        else:
+            raise ValueError(
+                f"Listener with id {listener_id} not found. This shouldn't be possible, please report."
+            )
 
 
 class AnyBroadcaster:
-    def __init__(self):
-        self._listeners: Dict[int, Any] = {}
+    class Listener:
+        def __init__(self, callback: Any, id: int, order: int):
+            self._callback = callback
+            self._id = id
+            self._order = order
 
-    def add_listener(self, callback: Any) -> ListenerCancellationToken:
-        listener_id = len(self._listeners)
-        self._listeners[listener_id] = callback
+    def __init__(self):
+        self._next_listener_id = 0
+        self._listeners: list[AnyBroadcaster.Listener] = []
+
+    def _get_next_listener_id(self) -> int:
+        listener_id = self._next_listener_id
+        self._next_listener_id += 1
+        return listener_id
+
+    def add_listener(
+        self, callback: Any, order: int = 100
+    ) -> ListenerCancellationToken:
+        """
+        Order affects where the listener will be inserted relative to others. The minimum value of -1
+        means the listener will be inserted in front of all others. The default value is 100. There
+        is no maximum, other than whatever int can hold.
+        """
+        assert order >= -1
+
+        listener_id = self._get_next_listener_id()
+        listener = AnyBroadcaster.Listener(callback, listener_id, order)
+
+        for i, existing_listener in enumerate(self._listeners):
+            if existing_listener._order > order:
+                self._listeners.insert(i, listener)
+                break
+        else:
+            self._listeners.append(listener)
+
         return ListenerCancellationToken(self, listener_id)
 
     def _call_listeners(self, callback: Callable[[Any], None]):
-        for k, listener in self._listeners.items():
-            callback(listener)
+        for listener in self._listeners:
+            callback(listener._callback)
 
     def _remove_listener(self, listener_id: int) -> None:
-        del self._listeners[listener_id]
+        for i, listener in enumerate(self._listeners):
+            if listener._id == listener_id:
+                del self._listeners[i]
+                break
+        else:
+            raise ValueError(
+                f"Listener with id {listener_id} not found. This shouldn't be possible, please report."
+            )
