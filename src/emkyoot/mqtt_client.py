@@ -78,7 +78,6 @@ class MqttClient:
         self._mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._mqttc.on_connect = self._on_connect
         self._mqttc.on_message = self._on_message
-        self._should_disconnect = False
         self._base_topic: str = ""
 
     @final
@@ -93,10 +92,6 @@ class MqttClient:
             self._mqttc.username_pw_set(username, password)
 
         self._mqttc.connect(host, port, keepalive)
-
-    @final
-    def _disconnect(self):
-        self._should_disconnect = True
 
     @final
     def _loop_forever(self):
