@@ -22,7 +22,7 @@ from typing import final, override, Dict, Any, List
 
 from emkyoot.parameters import Broadcaster
 from .message_loop import AsyncUpdater
-from .mqtt_client import MqttClient, MqttSubscriber
+from .mqtt_client import MqttClient, MqttSubscriber, MqttClientImpl
 from .parameters import (
     ParameterBase,
     QueryableNumericParameter,
@@ -168,8 +168,8 @@ class DevicesClient(MqttClient):
         handy way to iterate over all your devices.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, impl: MqttClientImpl | None = None):
+        super().__init__(impl)
         self._skip_initial_query: bool = False
         self.on_connect: Broadcaster = Broadcaster()
 
@@ -191,12 +191,8 @@ class DevicesClient(MqttClient):
         self._skip_initial_query = skip
 
     @override
-    def _on_connect_message_thread(
-        self, client, userdata, flags, reason_code, properties
-    ):
-        super()._on_connect_message_thread(
-            client, userdata, flags, reason_code, properties
-        )
+    def _on_connect(self, reason_code):
+        super()._on_connect(reason_code)
 
         if not self._skip_initial_query:
             for key, device in vars(self).items():
@@ -208,5 +204,5 @@ class DevicesClient(MqttClient):
         self.on_connect._call_listeners()
 
     @override
-    def _on_message_message_thread(self, client, userdata, msg):
-        super()._on_message_message_thread(client, userdata, msg)
+    def _on_message(self, topic: str, payload: Dict[str, Any]):
+        super()._on_message(topic, payload)

@@ -549,6 +549,7 @@ from emkyoot.parameters import (
     SettableBinaryParameter,
     CompositeParameter,
 )
+from emkyoot.mqtt_client import MqttClientImpl
 
 from emkyoot.device_bases import *
 
@@ -560,8 +561,8 @@ from emkyoot.device_bases import *
 
     available_devices: List[CodeLine] = [
         CodeLine("class AvailableDevices(DevicesClient):", CodeIndent.INDENT),
-        CodeLine("def __init__(self):", CodeIndent.INDENT),
-        CodeLine("super().__init__()"),
+        CodeLine("def __init__(self, impl: MqttClientImpl | None = None):", CodeIndent.INDENT),
+        CodeLine("super().__init__(impl)"),
     ]
 
     for device_description in payload:

@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Dict, Any, final, Optional
+from abc import abstractmethod
+from typing import Dict, Any, final, Optional, override
 
 import paho.mqtt.client as mqtt
 
@@ -72,18 +73,58 @@ class MqttClientPublisher:
         self._client._publish(self._topic + "/get", properties)
 
 
-class MqttClient:
+class MqttClientImpl:
+    @abstractmethod
+    def connect(
+        self,
+        host: str,
+        port: int,
+        keepalive: int,
+        use_tls: bool = False,
+        username: str | None = None,
+        password: str | None = None,
+    ):
+        pass
+
+    @abstractmethod
+    def set_on_connect(self, callback):
+        pass
+
+    @abstractmethod
+    def set_on_message(self, callback):
+        pass
+
+    @abstractmethod
+    def subscribe(self, topic: str):
+        pass
+
+    @abstractmethod
+    def publish(self, topic: str, payload: Dict[str, Any]):
+        pass
+
+    @abstractmethod
+    def loop_forever(self):
+        pass
+
+
+class PahoMqttClientImpl(MqttClientImpl):
     def __init__(self):
-        self._dispatch: Dict[str, MqttSubscriber] = {}
         self._mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._mqttc.on_connect = self._on_connect
         self._mqttc.on_message = self._on_message
-        self._base_topic: str = ""
+        self._on_connect_callback = None
+        self._on_message_callback = None
 
-    @final
-    def _connect(self, host, port, keepalive, base_topic: str, use_tls: bool = False, username: str | None = None, password: str | None = None):
-        self._base_topic = base_topic
-
+    @override
+    def connect(
+        self,
+        host: str,
+        port: int,
+        keepalive: int,
+        use_tls: bool = False,
+        username: str | None = None,
+        password: str | None = None,
+    ):
         if use_tls:
             self._mqttc.tls_set()
             self._mqttc.tls_insecure_set(True)
@@ -93,44 +134,33 @@ class MqttClient:
 
         self._mqttc.connect(host, port, keepalive)
 
-    @final
-    def _loop_forever(self):
+    @override
+    def loop_forever(self):
         self._mqttc.loop_start()
         message_loop.run()
         self._mqttc.disconnect()
 
-    # ==========================================================================
-    def _on_connect_message_thread(
-        self, client, userdata, flags, reason_code, properties
-    ):
-        for key, member in vars(self).items():
-            if not isinstance(member, MqttSubscriber):
-                continue
-
-            topic = f"{self._base_topic}/{member._get_topic()}"
-            self._dispatch[topic] = member
-            client.subscribe(topic)
-            member._on_connect(MqttClientPublisher(self, topic))
-
-    def _on_message_message_thread(self, client, userdata, msg):
-        logger.debug(f'RECEIVE "{msg.topic}"\n{json.loads(msg.payload)}')
-
-        if msg.topic in self._dispatch.keys():
-            logger.debug(f'DISPATCH to {msg.topic} handler\n')
-            self._dispatch[msg.topic]._on_message(json.loads(msg.payload))
-
-    # ==========================================================================
-    @final
-    def _publish(self, topic: str, payload: Dict[str, Any]):
-        logger.debug(f'PUBLISH on "{topic}"\n{payload}\n')
-
+    @override
+    def publish(self, topic: str, payload: Dict[str, Any]):
         self._mqttc.publish(
             topic,
             json.dumps(payload),
             qos=1,
         )
 
-    @final
+    @override
+    def subscribe(self, topic: str):
+        self._mqttc.subscribe(topic)
+
+    @override
+    def set_on_connect(self, callback):
+        self._on_connect_callback = callback
+
+    @override
+    def set_on_message(self, callback):
+        self._on_message_callback = callback
+
+    # ==========================================================================
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         def callback():
             self._on_connect_message_thread(
@@ -139,9 +169,76 @@ class MqttClient:
 
         message_loop.post_message(callback)
 
-    @final
     def _on_message(self, client, userdata, msg):
         def callback():
             self._on_message_message_thread(client, userdata, msg)
 
         message_loop.post_message(callback)
+
+    def _on_connect_message_thread(
+        self, client, userdata, flags, reason_code, properties
+    ):
+        if self._on_connect_callback is None:
+            return
+
+        self._on_connect_callback(reason_code)
+
+    def _on_message_message_thread(self, client, userdata, msg):
+        if self._on_message_callback is None:
+            return
+
+        self._on_message_callback(msg.topic, json.loads(msg.payload))
+
+
+class MqttClient:
+    def __init__(self, impl: MqttClientImpl | None = None):
+        self._base_topic: str = ""
+        self._dispatch: Dict[str, MqttSubscriber] = {}
+        self._impl: MqttClientImpl = impl if impl is not None else PahoMqttClientImpl()
+
+        self._impl.set_on_connect(self._on_connect)
+        self._impl.set_on_message(self._on_message)
+
+    @final
+    def _connect(
+        self,
+        host: str,
+        port: int,
+        keepalive: int,
+        base_topic: str,
+        use_tls: bool = False,
+        username: str | None = None,
+        password: str | None = None,
+    ):
+        self._base_topic = base_topic
+
+        self._impl.connect(
+            host, port, keepalive, use_tls, username, password
+        )
+
+    @final
+    def _loop_forever(self):
+        self._impl.loop_forever()
+
+    def _on_connect(self, reason_code):
+        for key, member in vars(self).items():
+            if not isinstance(member, MqttSubscriber):
+                continue
+
+            topic = f"{self._base_topic}/{member._get_topic()}"
+            self._dispatch[topic] = member
+            self._impl.subscribe(topic)
+            member._on_connect(MqttClientPublisher(self, topic))
+
+    def _on_message(self, topic: str, payload: Dict[str, Any]):
+        logger.debug(f'RECEIVE "{topic}"\n{payload}')
+
+        if topic in self._dispatch.keys():
+            logger.debug(f"DISPATCH to {topic} handler\n")
+            self._dispatch[topic]._on_message(payload)
+
+    # ==========================================================================
+    @final
+    def _publish(self, topic: str, payload: Dict[str, Any]):
+        logger.debug(f'PUBLISH on "{topic}"\n{payload}\n')
+        self._impl.publish(topic, payload)
