@@ -1,0 +1,256 @@
+  0.14  RECV  zigbee2mqtt/Living room temp        {
+                                                    "battery": 100,
+                                                    "humidity": 49.4,
+                                                    "linkquality": 248,
+                                                    "temperature": 24
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  0.14  RECV  zigbee2mqtt/dishwasher leak sensor  {
+                                                    "battery": 97,
+                                                    "identify": null,
+                                                    "linkquality": 200,
+                                                    "update": {
+                                                      "installed_version": 16777223,
+                                                      "latest_version": 16777223,
+                                                      "state": "idle"
+                                                    },
+                                                    "water_leak": false
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  2.12  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "brightness": 254,
+                                                    "color_temp": 454
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  2.29  CREC  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 454,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  3.13  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "state": "ON"
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  3.23  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 454,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  4.13  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "state": "OFF"
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  4.23  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 454,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "OFF",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  5.14  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "color_temp": 250
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  5.22  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 250,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "OFF",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  6.14  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "state": "ON"
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  6.21  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 250,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  6.26  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 250,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  7.15  SEND  zigbee2mqtt/Tokabo/set              {
+                                                    "color_temp": 255
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  7.23  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 254,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 255,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 180,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  8.15  SEND  zigbee2mqtt/Tokabo/get              {
+                                                    "brightness": ""
+                                                  }
+--------------------------------------------------------------------------------------------------------------
+  8.23  RECV  zigbee2mqtt/Tokabo                  {
+                                                    "brightness": 28,
+                                                    "color_mode": "color_temp",
+                                                    "color_options": {
+                                                      "execute_if_off": false
+                                                    },
+                                                    "color_temp": 255,
+                                                    "color_temp_startup": 65535,
+                                                    "effect": null,
+                                                    "identify": null,
+                                                    "level_config": {
+                                                      "current_level_startup": "previous",
+                                                      "execute_if_off": false,
+                                                      "on_level": "previous",
+                                                      "on_off_transition_time": 5
+                                                    },
+                                                    "linkquality": 184,
+                                                    "power_on_behavior": null,
+                                                    "state": "ON",
+                                                    "update": {
+                                                      "installed_version": 16842784,
+                                                      "latest_version": 16842784,
+                                                      "state": "idle"
+                                                    }
+                                                  }
+--------------------------------------------------------------------------------------------------------------

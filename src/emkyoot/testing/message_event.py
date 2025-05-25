@@ -1,15 +1,41 @@
 from __future__ import annotations
 
 import json
+from enum import IntEnum
 from pathlib import Path
 from typing import Dict, Any
 
 
+class MessageEventKind(IntEnum):
+    RECV = 0
+    SEND = 1
+    CONDITIONAL_RECV = 2
+
+    def to_string(self):
+        if self == MessageEventKind.RECV:
+            return "RECV"
+        elif self == MessageEventKind.SEND:
+            return "SEND"
+
+        return "CREC"
+
+    @staticmethod
+    def from_string(s: str) -> MessageEventKind:
+        if s == "RECV":
+            return MessageEventKind.RECV
+        elif s == "SEND":
+            return MessageEventKind.SEND
+        elif s == "CREC":
+            return MessageEventKind.CONDITIONAL_RECV
+
+        raise ValueError(f"Unknown message event kind: {s}")
+
+
 class MessageEvent:
     def __init__(
-        self, incoming: bool, time: float, topic: str, payload: Dict[str, Any]
+        self, kind: MessageEventKind, time: float, topic: str, payload: Dict[str, Any]
     ):
-        self.incoming = incoming
+        self.kind = kind
         self.topic = topic
         self.payload = payload
         self.time = time
@@ -19,7 +45,7 @@ class MessageEvent:
             return False
 
         return (
-            self.incoming == other.incoming
+            self.kind == other.kind
             and self.topic == other.topic
             and self.payload == other.payload
             and self.time == other.time
@@ -29,8 +55,7 @@ class MessageEvent:
         time_string = f"{self.time:.2f}"
         indented_time_string = " " * max(6 - len(time_string), 0) + time_string
 
-        recv_or_send = "RECV" if self.incoming else "SEND"
-        line = f"{indented_time_string}  {recv_or_send}  {self.topic}  "
+        line = f"{indented_time_string}  {self.kind.to_string()}  {self.topic}  "
 
         payload_indent = max(len(line), 50)
         first_payload_line_indent = max(payload_indent - len(line), 0)
@@ -86,10 +111,7 @@ class MessageEvent:
         if self.topic != other.topic:
             return False
 
-        if self.incoming != other.incoming:
-            return False
-
-        if self.time > other.time:
+        if self.kind != other.kind:
             return False
 
         return self._payload_satisfied_by(self.payload, other.payload)
@@ -98,7 +120,7 @@ class MessageEvent:
     def from_str(s: str) -> list[MessageEvent]:
         import re
 
-        first_line_pattern = r"^\s*(\d+\.\d+)  (RECV|SEND)  (.+)\s+{"
+        first_line_pattern = r"^\s*(\d+\.\d+)  (RECV|SEND|CREC)  (.+)\s+{"
 
         t: float = 0
         incoming: bool = False
@@ -117,7 +139,7 @@ class MessageEvent:
                 if m is not None:
                     time_str, dir_str, topic_str = m.groups()
                     t = float(time_str)
-                    incoming = dir_str == "RECV"
+                    kind = MessageEventKind.from_string(dir_str)
                     topic = topic_str.strip()
                     bracket_count = 1
 
@@ -130,19 +152,21 @@ class MessageEvent:
 
                 if bracket_count == 0:
                     events.append(
-                        MessageEvent(incoming, t, topic, json.loads(payload_str))
+                        MessageEvent(kind, t, topic, json.loads(payload_str))
                     )
                     event_found = False
 
         return events
 
     @staticmethod
-    def dumps(events: list[MessageEvent], file: Path):
+    def dumps(events: list[MessageEvent]):
         result = ""
 
         for event in events:
             result += str(event)
             result += "\n" + "-" * 110 + "\n"
+
+        return result
 
     @staticmethod
     def loads(s: str):
@@ -151,7 +175,7 @@ class MessageEvent:
     @staticmethod
     def dump(events: list[MessageEvent], file: Path):
         with open(file, "w") as f:
-            f.write(MessageEvent.dumps(events, file))
+            f.write(MessageEvent.dumps(events))
 
     @staticmethod
     def load(file: Path):
