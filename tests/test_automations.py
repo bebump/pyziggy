@@ -68,8 +68,6 @@ class TestStringMethods(unittest.TestCase):
         devices._connect("", 0, 0, "zigbee2mqtt")
         devices._loop_forever()
 
-        # print(MessageEvent.dumps(playback_impl.get_recorded_events()))
-
         self.assertTrue(playback_impl.playback_success())
 
 

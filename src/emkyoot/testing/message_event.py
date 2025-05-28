@@ -9,15 +9,21 @@ from typing import Dict, Any
 class MessageEventKind(IntEnum):
     RECV = 0
     SEND = 1
-    CONDITIONAL_RECV = 2
+    EXPECTED_ORDERED = 2
+    EXPECTED_UNORDERED = 3
+    PROHIBITED = 4
 
     def to_string(self):
         if self == MessageEventKind.RECV:
             return "RECV"
         elif self == MessageEventKind.SEND:
             return "SEND"
+        elif self == MessageEventKind.EXPECTED_ORDERED:
+            return "EXPO"
+        elif self == MessageEventKind.EXPECTED_UNORDERED:
+            return "EXPU"
 
-        return "CREC"
+        return "PROH"
 
     @staticmethod
     def from_string(s: str) -> MessageEventKind:
@@ -25,8 +31,12 @@ class MessageEventKind(IntEnum):
             return MessageEventKind.RECV
         elif s == "SEND":
             return MessageEventKind.SEND
-        elif s == "CREC":
-            return MessageEventKind.CONDITIONAL_RECV
+        elif s == "EXPO":
+            return MessageEventKind.EXPECTED_ORDERED
+        elif s == "EXPU":
+            return MessageEventKind.EXPECTED_UNORDERED
+        elif s == "PROH":
+            return MessageEventKind.PROHIBITED
 
         raise ValueError(f"Unknown message event kind: {s}")
 
@@ -108,10 +118,13 @@ class MessageEvent:
         A wildcard is a "*" value for a given key or a "*" key with any value, which matches any
         number of key, value pairs with any content.
         """
-        if self.topic != other.topic:
+        if self.topic != "*" and self.topic != other.topic:
             return False
 
-        if self.kind != other.kind:
+        if self.kind == MessageEventKind.SEND or self.kind == MessageEventKind.RECV:
+            if self.kind != other.kind:
+                return False
+        elif other.kind != MessageEventKind.SEND:
             return False
 
         return self._payload_satisfied_by(self.payload, other.payload)
@@ -120,7 +133,7 @@ class MessageEvent:
     def from_str(s: str) -> list[MessageEvent]:
         import re
 
-        first_line_pattern = r"^\s*(\d+\.\d+)  (RECV|SEND|CREC)  (.+)\s+{"
+        first_line_pattern = r"^\s*(\d+\.\d+)  (RECV|SEND|EXPO|EXPU|PROH)  (.+)\s+{"
 
         t: float = 0
         incoming: bool = False
@@ -141,20 +154,17 @@ class MessageEvent:
                     t = float(time_str)
                     kind = MessageEventKind.from_string(dir_str)
                     topic = topic_str.strip()
-                    bracket_count = 1
+                    bracket_count = line.count("{") - line.count("}")
 
-                    payload_str = "{"
+                    payload_str = "{" + line.split("{", 1)[1]
                     event_found = True
             else:
                 payload_str += line.strip()
-                bracket_count += line.count("{")
-                bracket_count -= line.count("}")
+                bracket_count += line.count("{") - line.count("}")
 
-                if bracket_count == 0:
-                    events.append(
-                        MessageEvent(kind, t, topic, json.loads(payload_str))
-                    )
-                    event_found = False
+            if event_found and bracket_count == 0:
+                events.append(MessageEvent(kind, t, topic, json.loads(payload_str)))
+                event_found = False
 
         return events
 
@@ -181,3 +191,65 @@ class MessageEvent:
     def load(file: Path):
         with open(file, "r") as f:
             return MessageEvent.loads(f.read())
+
+
+class MessageEventList:
+    def __init__(self, events: list[MessageEvent] = []):
+        self.events: list[MessageEvent] = events
+
+    def add(self, event: MessageEvent):
+        self.events.append(event)
+
+    def __len__(self):
+        return len(self.events)
+
+    def get(self, index: int) -> MessageEvent:
+        return self.events[index]
+
+    def get_next_recv_index(self, prev: int = -1) -> int | None:
+        next_recv_index = prev + 1
+
+        while True:
+            if next_recv_index >= len(self.events):
+                return None
+
+            if self.events[next_recv_index].kind == MessageEventKind.RECV:
+                break
+
+            next_recv_index += 1
+
+        return next_recv_index
+
+    def get_from_recv_up_to_recv(self, end: int) -> list[MessageEvent]:
+        """
+        end should be the index of a RECV message. This function will return all messages starting
+        from (and not including) the previous RECV message up to and not including the specified
+        RECV message.
+        """
+        def clamp(n: int) -> int:
+            return min(max(0, n), len(self.events) - 1)
+
+        i = clamp(end - 1)
+
+        while True:
+            if self.events[i].kind == MessageEventKind.RECV:
+                i = clamp(i + 1)
+                break
+
+            if i == 0:
+                break
+
+            i = clamp(i - 1)
+
+        return self.events[i:end]
+
+    def get_messages_since_last_recv(self):
+        if not self.events:
+            return []
+
+        last_index = len(self.events) - 1
+
+        if self.events[last_index].kind == MessageEventKind.RECV:
+            return []
+
+        return self.get_from_recv_up_to_recv(last_index + 1)

@@ -1,10 +1,9 @@
 import json
 import time
-from pathlib import Path
-from typing import override, Dict, Any
+from typing import override, Dict, Any, Tuple
 
 from . import MessageEvent
-from .message_event import MessageEventKind
+from .message_event import MessageEventKind, MessageEventList
 from ..message_loop import MessageLoopTimer
 from ..message_loop import message_loop
 from ..mqtt_client import PahoMqttClientImpl, MqttClientImpl
@@ -54,14 +53,17 @@ class PlaybackMqttClientImpl(MqttClientImpl):
     def __init__(self, recording: list[MessageEvent]):
         super().__init__()
         self.start = time.time()
-        self.recorded_events: list[MessageEvent] = []
-        self.playback_events = recording
+        self.recorded_events: MessageEventList = MessageEventList()
+        self.matching_recorded_event_indices: set[int] = set()
+        self.matched_index_pairs: list[Tuple[int, int]] = []
+        self.last_matched_event_index = -1
+        self.playback_events = MessageEventList(recording)
+        self.next_recv_index: int | None = self.playback_events.get_next_recv_index()
         self.subscriptions: set[str] = set()
         self.on_connect = lambda a: None
         self.on_message = lambda a, b: None
 
         self.timer = MessageLoopTimer(self.timer_callback)
-        self.next_event_index = 0
 
         self.cumulative_waits = 0.0
         self.replay_failure = False
@@ -99,7 +101,7 @@ class PlaybackMqttClientImpl(MqttClientImpl):
     @override
     def publish(self, topic: str, payload: Dict[str, Any]):
         event = MessageEvent(MessageEventKind.SEND, self.get_time(), topic, payload)
-        self.recorded_events.append(event)
+        self.recorded_events.add(event)
 
     def get_time(self):
         return time.time() - self.start
@@ -108,63 +110,145 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         timer.stop()
         self.prepare_next_callback()
 
-    def check_condition(self):
-        next_event = self.playback_events[self.next_event_index]
-        prior_event_index = self.next_event_index - 1
+    def match_expected_messages(
+        self, messages: list[MessageEvent], messages_begin: int
+    ):
+        begin = (
+            max(self.matching_recorded_event_indices)
+            if self.matching_recorded_event_indices
+            else 0
+        )
+        candidates = self.recorded_events.events[begin:]
+        matched_candidate_indices: set[int] = set()
 
-        if prior_event_index < 0:
-            return True
+        success = True
 
-        prior_event = self.playback_events[prior_event_index]
+        for i_message in reversed(range(len(messages))):
+            message = messages[i_message]
 
-        for recorded_event in self.recorded_events[::-1]:
-            if prior_event.satisfied_by(recorded_event):
-                return True
+            if message.kind != MessageEventKind.EXPECTED_ORDERED:
+                continue
 
-        return False
+            match_found = False
+
+            i_candidate_max = min(
+                len(candidates),
+                (
+                    max(matched_candidate_indices)
+                    if matched_candidate_indices
+                    else len(candidates)
+                ),
+            )
+
+            for i_candidate in reversed(range(i_candidate_max)):
+                if i_candidate in matched_candidate_indices:
+                    continue
+
+                if message.satisfied_by(candidates[i_candidate]):
+                    self.matched_index_pairs.append(
+                        (i_message + messages_begin, i_candidate + begin)
+                    )
+                    matched_candidate_indices.add(i_candidate)
+                    match_found = True
+                    break
+
+            if not match_found:
+                success = False
+
+        for i_message in reversed(range(len(messages))):
+            message = messages[i_message]
+
+            if message.kind != MessageEventKind.EXPECTED_UNORDERED:
+                continue
+
+            match_found = False
+
+            i_candidate_max = len(candidates)
+
+            for i_candidate in reversed(range(i_candidate_max)):
+                if i_candidate in matched_candidate_indices:
+                    continue
+
+                if message.satisfied_by(candidates[i_candidate]):
+                    self.matched_index_pairs.append(
+                        (i_message + messages_begin, i_candidate + begin)
+                    )
+                    matched_candidate_indices.add(i_candidate)
+                    match_found = True
+                    break
+
+            if not match_found:
+                success = False
+
+        for i_message in reversed(range(len(messages))):
+            message = messages[i_message]
+
+            if message.kind != MessageEventKind.PROHIBITED:
+                continue
+
+            i_candidate_max = len(candidates)
+
+            for i_candidate in reversed(range(i_candidate_max)):
+                if i_candidate in matched_candidate_indices:
+                    continue
+
+                if message.satisfied_by(candidates[i_candidate]):
+                    self.matched_index_pairs.append(
+                        (i_message + messages_begin, i_candidate + begin)
+                    )
+                    success = False
+
+        for i in matched_candidate_indices:
+            self.matching_recorded_event_indices.add(i + begin)
+
+        return success
 
     def prepare_next_callback(self):
         t = self.get_time()
 
         while True:
-            if self.next_event_index >= len(self.playback_events):
+            if self.next_recv_index is None:
                 message_loop.stop()
                 return False
 
-            next_event = self.playback_events[self.next_event_index]
+            next_recv_event = self.playback_events.get(self.next_recv_index)
 
-            if next_event.kind == MessageEventKind.SEND:
-                self.next_event_index += 1
-                continue
+            if next_recv_event.time < t:
+                # We need to find a match for these messages before we can proceed
+                expected_messages = self.playback_events.get_from_recv_up_to_recv(
+                    self.next_recv_index
+                )
 
-            if next_event.time < t:
-                # Try to match with ignoring base topic as well
-                if next_event.topic in self.subscriptions:
-                    if next_event.kind == MessageEventKind.CONDITIONAL_RECV:
-                        if not self.check_condition():
-                            self.cumulative_waits += 0.1
+                if not self.match_expected_messages(
+                    expected_messages, self.next_recv_index
+                ):
+                    self.cumulative_waits += 0.1
 
-                            if self.cumulative_waits > 1.0:
-                                self.replay_failure = True
-                                message_loop.stop()
-                                return False
+                    if self.cumulative_waits > 1.0:
+                        self.replay_failure = True
+                        message_loop.stop()
+                        return False
 
-                            self.timer.start(0.1)
-                            break
+                    self.timer.start(0.1)
+                    break
 
-                    self.recorded_events.append(
+                if next_recv_event.topic in self.subscriptions:
+                    self.recorded_events.add(
                         MessageEvent(
                             MessageEventKind.RECV,
                             t,
-                            next_event.topic,
-                            next_event.payload,
+                            next_recv_event.topic,
+                            next_recv_event.payload,
                         )
                     )
-                    self.on_message(next_event.topic, next_event.payload)
+                    self.on_message(next_recv_event.topic, next_recv_event.payload)
 
-                self.next_event_index += 1
+                assert self.next_recv_index is not None
+                self.next_recv_index = self.playback_events.get_next_recv_index(
+                    self.next_recv_index
+                )
             else:
-                self.timer.start(next_event.time - t + 0.1)
+                self.timer.start(next_recv_event.time - t + 0.1)
                 break
 
         return True
