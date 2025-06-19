@@ -16,3 +16,4 @@
 
 from .message_event import MessageEvent
 from .mock_mqtt_clients import RecordingMqttClientImpl, PlaybackMqttClientImpl
+from .connection_ascii_art import create_connection_ascii_art

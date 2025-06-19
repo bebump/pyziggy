@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from enum import IntEnum
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 
 class MessageEventKind(IntEnum):
@@ -226,6 +226,7 @@ class MessageEventList:
         from (and not including) the previous RECV message up to and not including the specified
         RECV message.
         """
+
         def clamp(n: int) -> int:
             return min(max(0, n), len(self.events) - 1)
 
@@ -253,3 +254,11 @@ class MessageEventList:
             return []
 
         return self.get_from_recv_up_to_recv(last_index + 1)
+
+
+def generate_match_diagram(
+    expected: list[MessageEvent],
+    actual: list[MessageEvent],
+    connections: list[Tuple[int, int]],
+):
+    pass

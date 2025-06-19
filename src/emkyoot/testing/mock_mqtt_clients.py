@@ -220,7 +220,7 @@ class PlaybackMqttClientImpl(MqttClientImpl):
                 )
 
                 if not self.match_expected_messages(
-                    expected_messages, self.next_recv_index
+                    expected_messages, self.next_recv_index - len(expected_messages)
                 ):
                     self.cumulative_waits += 0.1
 

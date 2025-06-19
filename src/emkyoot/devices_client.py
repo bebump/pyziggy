@@ -188,6 +188,14 @@ class DevicesClient(MqttClient):
         return devices
 
     def _set_skip_initial_query(self, skip: bool) -> None:
+        """
+        By default, a DevicesClient will send a query message upon startup to the MQTT server for all
+        device parameters. This ensures that all parameters will reflect the actual device states as
+        soon as possible, but it also generates a lot of traffic on startup, which may make tests harder
+        to follow and short scripts (just turning on a light) unnecessarily communication heavy.
+
+        Calling this function with `True` suppresses this initial querying behavior.
+        """
         self._skip_initial_query = skip
 
     @override

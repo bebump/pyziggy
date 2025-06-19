@@ -277,6 +277,43 @@ class RunThenExit:
 
 
 class TimedRunner:
+    """
+    Inherit from this class and override the run method to have a one-shot
+    timed script encapsulating a DevicesClient.
+
+    The TimedRunner will run all commands at the right time and after the
+    last it will call message_loop.stop().
+
+    Example:
+        class Test(TimedRunner):
+            @override
+            def run(self):
+                if self.wait(2):
+                    devices.tokabo.brightness.set_normalized(1)
+                    devices.tokabo.color_temp.set(454)
+
+                if self.wait(1):
+                    devices.tokabo.state.set(1)
+
+                if self.wait(1):
+                    devices.tokabo.state.set(0)
+
+                if self.wait(1):
+                    devices.tokabo.color_temp.set(179)
+
+                if self.wait(1):
+                    devices.tokabo.state.set(1)
+
+                if self.wait(1):
+                    devices.tokabo.color_temp.set(255)
+
+                if self.wait(1):
+                    devices.tokabo.brightness.query_device()
+
+        _ = Test(devices)
+        devices._loop_forever()
+    """
+
     def __init__(self, client: DevicesClient):
         self._timer = MessageLoopTimer(self._timer_callback)
         self._wait_id_to_run = -1

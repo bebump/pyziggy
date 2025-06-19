@@ -218,6 +218,14 @@ class MqttClient:
 
     @final
     def _loop_forever(self):
+        """
+        Starts the message loop. This function only returns after the message loop has been terminated.
+
+        To terminate the message loop call
+
+        from emkyoot.message_loop import message_loop
+        message_loop.stop()
+        """
         self._impl.loop_forever()
 
     def _on_connect(self, reason_code):
