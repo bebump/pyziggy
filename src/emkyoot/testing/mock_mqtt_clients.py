@@ -257,5 +257,18 @@ class PlaybackMqttClientImpl(MqttClientImpl):
     def loop_forever(self):
         self.on_connect(100)
 
+        if (
+            self.playback_events.events
+            and self.playback_events.events[-1].kind != MessageEventKind.RECV
+        ):
+            last_event = self.playback_events.events[-1]
+            recv_event = MessageEvent(
+                MessageEventKind.RECV,
+                last_event.time + 0.1,
+                "zigbee2mqtt/INJECTED_TEST_EVENT",
+                json.loads("{}"),
+            )
+            self.playback_events.events.append(recv_event)
+
         if self.prepare_next_callback():
             message_loop.run()
