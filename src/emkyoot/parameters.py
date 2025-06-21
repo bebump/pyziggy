@@ -364,7 +364,8 @@ class CompositeParameter(ParameterBase):
     @final
     @override
     def _should_device_be_queryied(self) -> bool:
-        should_device_be_queryied = False
+        should_device_be_queryied = self._should_query_device
+        self._should_query_device = False
 
         for param in self._get_subparameters():
             should_device_be_queryied = (

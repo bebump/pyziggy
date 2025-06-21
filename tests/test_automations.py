@@ -74,7 +74,8 @@ def test_automation_with_mock_mqtt_connection(automation_class: Type[TimedRunner
     devices._set_skip_initial_query(True)
     workarounds._apply(devices)
     devices._connect("", 0, 0, "zigbee2mqtt")
-    _ = automation_class(devices)
+    automation = automation_class(devices)
+    automation.set_stop_message_loop_when_done(False)
     devices._loop_forever()
 
     test_build_dir = rel_to_py("test_logs")
@@ -138,6 +139,33 @@ class TestStringMethods(unittest.TestCase):
         # The traffic log file can be edited in ways to expect (EXPO, EXPU) or prohibit (PROH)
         # messages sent by the DevicesClient.
         self.assertTrue(test_automation_with_mock_mqtt_connection(SimpleAutomation))
+
+    def test_querying_complex_parameter(self):
+        from emkyoot_autogenerate.available_devices import AvailableDevices
+
+        class QueryComplexParameter(TimedRunner):
+            def __init__(self, devices: AvailableDevices):
+                super().__init__(devices)
+                self.devices = devices
+
+            @override
+            def run(self):
+                devices = self.devices
+
+                if self.wait(0.5):
+                    devices.color_bulb.color_hs._query_device()
+
+        # Uncomment this line if you'd like to actually connect to an MQTT server, execute the
+        # automation, record the traffic, and save it to a file.
+        # connect_to_mqtt_and_record_traffic(QueryComplexParameter)
+
+        # Uncomment this line if you'd like to run the automation with a mock MQTT client
+        # implementation that plays back events from a previously recorded traffic log file.
+        # The traffic log file can be edited in ways to expect (EXPO, EXPU) or prohibit (PROH)
+        # messages sent by the DevicesClient.
+        self.assertTrue(
+            test_automation_with_mock_mqtt_connection(QueryComplexParameter)
+        )
 
 
 if __name__ == "__main__":

@@ -321,8 +321,15 @@ class TimedRunner:
         self._can_run = True
         self._next_wait_interval: float = 0
         self._quit_now = False
+        self.stop_message_loop_when_done = True
 
         client.on_connect.add_listener(self._setup_next_callback)
+
+    def set_stop_message_loop_when_done(self, stop: bool):
+        """
+        Set whether to stop the message loop when done. The default value is True.
+        """
+        self.stop_message_loop_when_done = stop
 
     @abstractmethod
     def run(self):
@@ -357,7 +364,9 @@ class TimedRunner:
         timer.stop()
 
         if self._quit_now:
-            message_loop.stop()
+            if self.stop_message_loop_when_done:
+                message_loop.stop()
+
             return
 
         self._can_run = True

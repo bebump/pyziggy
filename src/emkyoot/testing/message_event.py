@@ -244,17 +244,6 @@ class MessageEventList:
 
         return self.events[i:end]
 
-    def get_messages_since_last_recv(self):
-        if not self.events:
-            return []
-
-        last_index = len(self.events) - 1
-
-        if self.events[last_index].kind == MessageEventKind.RECV:
-            return []
-
-        return self.get_from_recv_up_to_recv(last_index + 1)
-
 
 def generate_match_diagram(
     expected: list[MessageEvent],

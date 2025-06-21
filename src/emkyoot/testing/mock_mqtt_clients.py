@@ -58,6 +58,20 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         self.matched_index_pairs: list[Tuple[int, int]] = []
         self.last_matched_event_index = -1
         self.playback_events = MessageEventList(recording)
+
+        if (
+            self.playback_events.events
+            and self.playback_events.events[-1].kind != MessageEventKind.RECV
+        ):
+            last_event = self.playback_events.events[-1]
+            recv_event = MessageEvent(
+                MessageEventKind.RECV,
+                last_event.time + 0.1,
+                "zigbee2mqtt/INJECTED_TEST_EVENT",
+                json.loads("{}"),
+            )
+            self.playback_events.events.append(recv_event)
+
         self.next_recv_index: int | None = self.playback_events.get_next_recv_index()
         self.subscriptions: set[str] = set()
         self.on_connect = lambda a: None
@@ -256,19 +270,6 @@ class PlaybackMqttClientImpl(MqttClientImpl):
     @override
     def loop_forever(self):
         self.on_connect(100)
-
-        if (
-            self.playback_events.events
-            and self.playback_events.events[-1].kind != MessageEventKind.RECV
-        ):
-            last_event = self.playback_events.events[-1]
-            recv_event = MessageEvent(
-                MessageEventKind.RECV,
-                last_event.time + 0.1,
-                "zigbee2mqtt/INJECTED_TEST_EVENT",
-                json.loads("{}"),
-            )
-            self.playback_events.events.append(recv_event)
 
         if self.prepare_next_callback():
             message_loop.run()
