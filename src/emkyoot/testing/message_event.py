@@ -194,8 +194,8 @@ class MessageEvent:
 
 
 class MessageEventList:
-    def __init__(self, events: list[MessageEvent] = []):
-        self.events: list[MessageEvent] = events
+    def __init__(self, events: list[MessageEvent] | None = None):
+        self.events: list[MessageEvent] = events if events is not None else []
 
     def add(self, event: MessageEvent):
         self.events.append(event)

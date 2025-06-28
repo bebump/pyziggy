@@ -93,10 +93,16 @@ class NumericParameter(ParameterBase):
         if self._should_send_to_device:
             return False
 
-        return (
-            self._reported_timestamp - self._requested_timestamp
-            > self._report_delay_tolerance
-        )
+        if self._reported_timestamp == 0:
+            return False
+
+        if self._reported_timestamp - self._requested_timestamp > 0.2:
+            return True
+
+        if time.perf_counter() - self._reported_timestamp > 1.0:
+            return True
+
+        return False
 
     @final
     def get(self) -> float:

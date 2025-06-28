@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import override, Type
 
 from emkyoot import workarounds
+from emkyoot.parameters import NumericParameter
 from emkyoot.testing import MessageEvent
 from emkyoot.testing import PlaybackMqttClientImpl, RecordingMqttClientImpl
 from emkyoot.testing import create_connection_ascii_art
@@ -165,6 +166,90 @@ class TestStringMethods(unittest.TestCase):
         # messages sent by the DevicesClient.
         self.assertTrue(
             test_automation_with_mock_mqtt_connection(QueryComplexParameter)
+        )
+
+    def test_parameter_update_within_delay_tolerance(self):
+        """
+        Setting a parameter twice within the report_delay_tolerance should not send another update
+        to the server, even if the new value hasn't been confirmed by it yet.
+        """
+
+        from emkyoot_autogenerate.available_devices import AvailableDevices
+
+        throwawayParam = NumericParameter("", 0, 1)
+        report_delay_tolerance = throwawayParam._report_delay_tolerance
+
+        class DelayedParameterUpdate(TimedRunner):
+            def __init__(self, devices: AvailableDevices):
+                super().__init__(devices)
+                self.devices = devices
+
+            @override
+            def run(self):
+                devices = self.devices
+
+                if self.wait(1):
+                    devices.tokabo.brightness.set(50)
+
+                if self.wait(0.6):
+                    devices.tokabo.brightness.set(100)
+
+                if self.wait(report_delay_tolerance / 4):
+                    devices.tokabo.brightness.set(100)
+
+        # Uncomment this line if you'd like to actually connect to an MQTT server, execute the
+        # automation, record the traffic, and save it to a file.
+        # connect_to_mqtt_and_record_traffic(QueryComplexParameter)
+
+        # Uncomment this line if you'd like to run the automation with a mock MQTT client
+        # implementation that plays back events from a previously recorded traffic log file.
+        # The traffic log file can be edited in ways to expect (EXPO, EXPU) or prohibit (PROH)
+        # messages sent by the DevicesClient.
+        self.assertTrue(
+            test_automation_with_mock_mqtt_connection(DelayedParameterUpdate)
+        )
+
+    def test_parameter_update_outside_delay_tolerance(self):
+        """
+        Setting a parameter twice within the report_delay_tolerance should not send another update
+        to the server, even if the new value hasn't been confirmed by it yet.
+        """
+
+        from emkyoot_autogenerate.available_devices import AvailableDevices
+
+        throwawayParam = NumericParameter("", 0, 1)
+        report_delay_tolerance = throwawayParam._report_delay_tolerance
+
+        class DelayedParameterUpdateOutsideTolerance(TimedRunner):
+            def __init__(self, devices: AvailableDevices):
+                super().__init__(devices)
+                self.devices = devices
+
+            @override
+            def run(self):
+                devices = self.devices
+
+                if self.wait(1):
+                    devices.tokabo.brightness.set(50)
+
+                if self.wait(1):
+                    devices.tokabo.brightness.set(100)
+
+                if self.wait(report_delay_tolerance * 1.5):
+                    devices.tokabo.brightness.set(100)
+
+        # Uncomment this line if you'd like to actually connect to an MQTT server, execute the
+        # automation, record the traffic, and save it to a file.
+        # connect_to_mqtt_and_record_traffic(QueryComplexParameter)
+
+        # Uncomment this line if you'd like to run the automation with a mock MQTT client
+        # implementation that plays back events from a previously recorded traffic log file.
+        # The traffic log file can be edited in ways to expect (EXPO, EXPU) or prohibit (PROH)
+        # messages sent by the DevicesClient.
+        self.assertFalse(
+            test_automation_with_mock_mqtt_connection(
+                DelayedParameterUpdateOutsideTolerance
+            )
         )
 
 

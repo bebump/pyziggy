@@ -197,6 +197,25 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         for i_message in reversed(range(len(messages))):
             message = messages[i_message]
 
+            if message.kind != MessageEventKind.SEND:
+                continue
+
+            i_candidate_max = len(candidates)
+
+            for i_candidate in reversed(range(i_candidate_max)):
+                if i_candidate in matched_candidate_indices:
+                    continue
+
+                if message.satisfied_by(candidates[i_candidate]):
+                    self.matched_index_pairs.append(
+                        (i_message + messages_begin, i_candidate + begin)
+                    )
+                    matched_candidate_indices.add(i_candidate)
+                    break
+
+        for i_message in reversed(range(len(messages))):
+            message = messages[i_message]
+
             if message.kind != MessageEventKind.PROHIBITED:
                 continue
 
@@ -210,7 +229,8 @@ class PlaybackMqttClientImpl(MqttClientImpl):
                     self.matched_index_pairs.append(
                         (i_message + messages_begin, i_candidate + begin)
                     )
-                    success = False
+                    self.replay_failure = True
+                    break
 
         for i in matched_candidate_indices:
             self.matching_recorded_event_indices.add(i + begin)
