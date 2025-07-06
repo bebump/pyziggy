@@ -1,6 +1,6 @@
-from emkyoot.message_loop import MessageLoopTimer
-from emkyoot.parameters import Broadcaster, AnyBroadcaster
-from emkyoot_autogenerate.available_devices import (
+from pyziggy.message_loop import MessageLoopTimer
+from pyziggy.parameters import Broadcaster, AnyBroadcaster
+from pyziggy_autogenerate.available_devices import (
     IKEA_Remote_Control_N2,
     Philips_RDM002,
 )

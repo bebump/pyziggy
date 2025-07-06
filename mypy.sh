@@ -1,2 +1,2 @@
 #!/bin/zsh
-mypy --check-untyped-defs --strict-equality src/emkyoot
+mypy --check-untyped-defs --strict-equality src/pyziggy

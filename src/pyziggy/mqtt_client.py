@@ -1,5 +1,5 @@
-# emkyoot - Run automation scripts that interact with zigbee2mqtt.
-# Copyright (C) 2025  Attila Szarvas
+# pyziggy - Run automation scripts that interact with zigbee2mqtt.
+# Copyright (C) 2025 Attila Szarvas
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -223,7 +223,7 @@ class MqttClient:
 
         To terminate the message loop call
 
-        from emkyoot.message_loop import message_loop
+        from pyziggy.message_loop import message_loop
         message_loop.stop()
         """
         self._impl.loop_forever()

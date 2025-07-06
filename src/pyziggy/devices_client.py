@@ -1,5 +1,5 @@
-# emkyoot - Run automation scripts that interact with zigbee2mqtt.
-# Copyright (C) 2025  Attila Szarvas
+# pyziggy - Run automation scripts that interact with zigbee2mqtt.
+# Copyright (C) 2025 Attila Szarvas
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ import logging
 import time
 from typing import final, override, Dict, Any, List
 
-from emkyoot.parameters import Broadcaster
+from pyziggy.parameters import Broadcaster
 from .message_loop import AsyncUpdater
 from .mqtt_client import MqttClient, MqttSubscriber, MqttClientImpl
 from .parameters import (

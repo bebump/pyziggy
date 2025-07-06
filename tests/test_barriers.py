@@ -1,7 +1,7 @@
 import unittest
 
-from emkyoot.message_loop import MessageLoopTimer
-from emkyoot.util import Barriers
+from pyziggy.message_loop import MessageLoopTimer
+from pyziggy.util import Barriers
 
 
 class TestBarriers(unittest.TestCase):

@@ -1,5 +1,5 @@
-# emkyoot - Run automation scripts that interact with zigbee2mqtt.
-# Copyright (C) 2025  Attila Szarvas
+# pyziggy - Run automation scripts that interact with zigbee2mqtt.
+# Copyright (C) 2025 Attila Szarvas
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ from .message_loop import message_loop
 logger = logging.getLogger(__name__)
 
 
-class EmkyootConfig:
+class PyziggyConfig:
     def __init__(
         self,
         host: str,
@@ -78,7 +78,7 @@ class EmkyootConfig:
             )
 
     @staticmethod
-    def load(config_file: Path | str) -> EmkyootConfig | None:
+    def load(config_file: Path | str) -> PyziggyConfig | None:
         try:
             config = toml.load(config_file)
 
@@ -87,7 +87,7 @@ class EmkyootConfig:
             if "flask" in config.keys() and "flask_port" in config["flask"].keys():
                 flask_port = config["flask"]["flask_port"]
 
-            return EmkyootConfig(
+            return PyziggyConfig(
                 config["mqtt_server"]["host"],
                 config["mqtt_server"]["port"],
                 config["mqtt_server"]["keepalive"],
@@ -110,8 +110,8 @@ class EmkyootConfig:
             return None
 
     @staticmethod
-    def create_default() -> EmkyootConfig:
-        return EmkyootConfig(
+    def create_default() -> PyziggyConfig:
+        return PyziggyConfig(
             "192.168.1.56", 1883, 60, "zigbee2mqtt", None, None, False, 5001
         )
 
@@ -138,7 +138,7 @@ flask_port = 5001
             f.write(default_config)
 
 
-def regenerate_device_definitions(available_devices_path: Path, config: EmkyootConfig):
+def regenerate_device_definitions(available_devices_path: Path, config: PyziggyConfig):
     from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
@@ -156,13 +156,13 @@ def regenerate_device_definitions(available_devices_path: Path, config: EmkyootC
     generator._loop_forever()
 
 
-def regenerate_available_devices(project_root: Path, config: EmkyootConfig):
-    autogenerate_dir = project_root / "emkyoot_autogenerate"
+def regenerate_available_devices(project_root: Path, config: PyziggyConfig):
+    autogenerate_dir = project_root / "pyziggy_autogenerate"
 
     if autogenerate_dir.exists():
         if not autogenerate_dir.is_dir():
             logger.fatal(
-                f"emkyoot autogenerate directory exists and is not a directory: {autogenerate_dir}"
+                f"pyziggy autogenerate directory exists and is not a directory: {autogenerate_dir}"
             )
             exit(1)
     else:
@@ -276,7 +276,7 @@ def get_devices_client_module_path(
 
 def quicklaunch(
     devices_client_param: DevicesClient | Path,
-    config: EmkyootConfig,
+    config: PyziggyConfig,
     skip_initial_query: bool = False,
     no_mypy: bool = False,
     flask_app: Flask | None = None,

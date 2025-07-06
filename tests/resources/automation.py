@@ -5,16 +5,16 @@ from device_helpers import (
     IkeaN2CommandRepeater,
     PhilipsTapDialRotaryHelper,
 )
-from emkyoot.device_bases import LightWithColorTemp, LightWithColor
-from emkyoot.parameters import (
+from pyziggy.device_bases import LightWithColorTemp, LightWithColor
+from pyziggy.parameters import (
     SettableBinaryParameter,
     SettableToggleParameter,
     SettableAndQueryableBinaryParameter,
     SettableAndQueryableToggleParameter,
 )
-from emkyoot.util import LightWithDimmingScalable as L2S
-from emkyoot.util import ScaleMapper
-from emkyoot_autogenerate.available_devices import AvailableDevices
+from pyziggy.util import LightWithDimmingScalable as L2S
+from pyziggy.util import ScaleMapper
+from pyziggy_autogenerate.available_devices import AvailableDevices
 
 
 # Interprets the provided path constituents relative to the location of this

@@ -1,6 +1,6 @@
 import unittest
 
-from emkyoot.testing import MessageEvent
+from pyziggy.testing import MessageEvent
 
 
 class TestMessageEvent(unittest.TestCase):

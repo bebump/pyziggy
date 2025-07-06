@@ -4,12 +4,12 @@ import unittest
 from pathlib import Path
 from typing import override, Type
 
-from emkyoot import workarounds
-from emkyoot.parameters import NumericParameter
-from emkyoot.testing import MessageEvent
-from emkyoot.testing import PlaybackMqttClientImpl, RecordingMqttClientImpl
-from emkyoot.testing import create_connection_ascii_art
-from emkyoot.util.util import TimedRunner
+from pyziggy import workarounds
+from pyziggy.parameters import NumericParameter
+from pyziggy.testing import MessageEvent
+from pyziggy.testing import PlaybackMqttClientImpl, RecordingMqttClientImpl
+from pyziggy.testing import create_connection_ascii_art
+from pyziggy.util.util import TimedRunner
 from generate import create_and_get_devices_client
 
 
@@ -42,13 +42,14 @@ def ensure_devices_client_setup():
 
     if not devices_client_generated:
         devices_client_dir = create_and_get_devices_client()
-        sys.path.append(devices_client_dir.parent)
+        sys.path.append(devices_client_dir.parent.as_posix())
+        devices_client_generated = True
 
 
 def connect_to_mqtt_and_record_traffic(automation_class: Type[TimedRunner]):
     ensure_devices_client_setup()
 
-    from emkyoot_autogenerate.available_devices import AvailableDevices
+    from pyziggy_autogenerate.available_devices import AvailableDevices
 
     recording_mqtt_impl = RecordingMqttClientImpl()
     devices = AvailableDevices(impl=recording_mqtt_impl)
@@ -66,7 +67,7 @@ def connect_to_mqtt_and_record_traffic(automation_class: Type[TimedRunner]):
 def test_automation_with_mock_mqtt_connection(automation_class: Type[TimedRunner]):
     ensure_devices_client_setup()
 
-    from emkyoot_autogenerate.available_devices import AvailableDevices
+    from pyziggy_autogenerate.available_devices import AvailableDevices
 
     playback_impl = PlaybackMqttClientImpl(
         MessageEvent.load(rel_to_py("resources", f"{automation_class.__name__}.txt"))
@@ -98,7 +99,7 @@ class TestStringMethods(unittest.TestCase):
         ensure_devices_client_setup()
 
     def test_simple_automation(self):
-        from emkyoot_autogenerate.available_devices import AvailableDevices
+        from pyziggy_autogenerate.available_devices import AvailableDevices
 
         class SimpleAutomation(TimedRunner):
             def __init__(self, devices: AvailableDevices):
@@ -142,7 +143,7 @@ class TestStringMethods(unittest.TestCase):
         self.assertTrue(test_automation_with_mock_mqtt_connection(SimpleAutomation))
 
     def test_querying_complex_parameter(self):
-        from emkyoot_autogenerate.available_devices import AvailableDevices
+        from pyziggy_autogenerate.available_devices import AvailableDevices
 
         class QueryComplexParameter(TimedRunner):
             def __init__(self, devices: AvailableDevices):
@@ -154,7 +155,7 @@ class TestStringMethods(unittest.TestCase):
                 devices = self.devices
 
                 if self.wait(0.5):
-                    devices.color_bulb.color_hs._query_device()
+                    devices.hue_lightstrip.color_hs._query_device()
 
         # Uncomment this line if you'd like to actually connect to an MQTT server, execute the
         # automation, record the traffic, and save it to a file.
@@ -174,7 +175,7 @@ class TestStringMethods(unittest.TestCase):
         to the server, even if the new value hasn't been confirmed by it yet.
         """
 
-        from emkyoot_autogenerate.available_devices import AvailableDevices
+        from pyziggy_autogenerate.available_devices import AvailableDevices
 
         throwawayParam = NumericParameter("", 0, 1)
         report_delay_tolerance = throwawayParam._report_delay_tolerance
@@ -215,7 +216,7 @@ class TestStringMethods(unittest.TestCase):
         to the server, even if the new value hasn't been confirmed by it yet.
         """
 
-        from emkyoot_autogenerate.available_devices import AvailableDevices
+        from pyziggy_autogenerate.available_devices import AvailableDevices
 
         throwawayParam = NumericParameter("", 0, 1)
         report_delay_tolerance = throwawayParam._report_delay_tolerance

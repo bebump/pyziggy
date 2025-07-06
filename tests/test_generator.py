@@ -4,9 +4,9 @@ import shutil
 import unittest
 from pathlib import Path
 
-from emkyoot.generator import generate_device_bases
-from emkyoot.generator import generate_devices_client
-from emkyoot.quicklaunch import run_mypy
+from pyziggy.generator import generate_device_bases
+from pyziggy.generator import generate_devices_client
+from pyziggy.quicklaunch import run_mypy
 
 
 # Interprets the provided path constituents relative to the location of this
@@ -39,7 +39,7 @@ class TestStringMethods(unittest.TestCase):
 
         test_build_dir.mkdir()
 
-        autogenerate_dir = test_build_dir / "emkyoot_autogenerate"
+        autogenerate_dir = test_build_dir / "pyziggy_autogenerate"
         autogenerate_dir.mkdir()
 
         generate_devices_client(devices_json, autogenerate_dir / "available_devices.py")

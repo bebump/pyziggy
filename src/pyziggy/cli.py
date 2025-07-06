@@ -1,5 +1,5 @@
-# emkyoot - Run automation scripts that interact with zigbee2mqtt.
-# Copyright (C) 2025  Attila Szarvas
+# pyziggy - Run automation scripts that interact with zigbee2mqtt.
+# Copyright (C) 2025 Attila Szarvas
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from .quicklaunch import quicklaunch, EmkyootConfig
+from .quicklaunch import quicklaunch, PyziggyConfig
 
 
 def parent_exists(parser, arg):
@@ -46,10 +46,10 @@ def quicklaunch_cmd(args):
             f"Creating empty template for missing config file: {config_file}.\n"
             f"Review and edit the config file, then relaunch this command."
         )
-        EmkyootConfig.write_default(config_file)
+        PyziggyConfig.write_default(config_file)
         exit(0)
 
-    config = EmkyootConfig.load(config_file)
+    config = PyziggyConfig.load(config_file)
 
     if config is None:
         print(f"Failed to load config file: {config_file.absolute()}")
@@ -65,7 +65,7 @@ def quicklaunch_cmd(args):
             f"and edit {devices_client_module_path.absolute()}"
         )
 
-        module_code = """from emkyoot_autogenerate.available_devices import AvailableDevices
+        module_code = """from pyziggy_autogenerate.available_devices import AvailableDevices
 
 devices = AvailableDevices()"""
 
@@ -87,7 +87,7 @@ def main(args: List[str] | None = None):
         "project. It only needs an empty project directory and a "
         "name for the project Python file. "
         ""
-        "E.g. `emkyoot quicklaunch path/to/empty_home_automation_dir/automation.py`",
+        "E.g. `pyziggy quicklaunch path/to/empty_home_automation_dir/automation.py`",
     )
     parser.add_argument(
         "-v", "--verbose", help="enables debug level logging", action="store_true"
@@ -101,7 +101,7 @@ def main(args: List[str] | None = None):
         help="This command does it all. It always automatically regenerates "
         "device definitions using the information provided by the "
         "MQTT server. The definitions are saved in "
-        "emkyoot_autogenerate/available_devices.py. This file "
+        "pyziggy_autogenerate/available_devices.py. This file "
         "will be overwritten every time this command runs. "
         ""
         "If no config.toml file is found next to the specified file, it also "

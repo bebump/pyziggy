@@ -1,5 +1,5 @@
 [project]
-name = "emkyoot"
+name = "pyziggy"
 version = "0.1.0"
 authors = [
   { name="Attila Szarvas", email="attila.szarvas@gmail.com" },
@@ -25,7 +25,7 @@ requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-emkyoot = "emkyoot.cli:main"
+pyziggy = "pyziggy.cli:main"
 
 [tool.setuptools.package-data]
-emkyoot = ["py.typed"]
+pyziggy = ["py.typed"]

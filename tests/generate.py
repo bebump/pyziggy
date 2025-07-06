@@ -1,4 +1,4 @@
-from emkyoot.generator import generate_devices_client
+from pyziggy.generator import generate_devices_client
 
 # Interprets the provided path constituents relative to the location of this
 # script, and returns an absolute Path to the resulting location.
@@ -33,7 +33,7 @@ def create_and_get_devices_client():
 
     test_build_dir.mkdir()
 
-    autogenerate_dir = test_build_dir / "emkyoot_autogenerate"
+    autogenerate_dir = test_build_dir / "pyziggy_autogenerate"
     autogenerate_dir.mkdir()
 
     generate_devices_client(devices_json, autogenerate_dir / "available_devices.py")
