@@ -29,24 +29,24 @@ from typing import Optional, TypeVar, Type
 import toml
 from flask import Flask
 
-from .workarounds import workarounds
 from .devices_client import DevicesClient
 from .message_loop import message_loop
+from .workarounds import workarounds
 
 logger = logging.getLogger(__name__)
 
 
 class PyziggyConfig:
     def __init__(
-        self,
-        host: str,
-        port: int,
-        keepalive: int,
-        base_topic: str,
-        username: str | None,
-        password: str | None,
-        use_tls: bool,
-        flask_port: int,
+            self,
+            host: str,
+            port: int,
+            keepalive: int,
+            base_topic: str,
+            username: str | None,
+            password: str | None,
+            use_tls: bool,
+            flask_port: int,
     ):
         self.host = host
         self.port = port
@@ -175,7 +175,7 @@ def regenerate_available_devices(project_root: Path, config: PyziggyConfig):
 
 
 def run_mypy(
-    python_script_path: Path,
+        python_script_path: Path,
 ) -> bool:
     env = os.environ.copy()
 
@@ -260,7 +260,7 @@ def load_devices_client(devices_client_module_path: Path) -> DevicesClient:
 
 
 def get_devices_client_module_path(
-    devices_client_param: DevicesClient | Path,
+        devices_client_param: DevicesClient | Path,
 ) -> Optional[Path]:
     if isinstance(devices_client_param, Path):
         return devices_client_param
@@ -274,13 +274,7 @@ def get_devices_client_module_path(
     return None
 
 
-def run(
-    devices_client_param: DevicesClient | Path,
-    config: PyziggyConfig,
-    skip_initial_query: bool = False,
-    no_mypy: bool = False,
-    flask_app: Flask | None = None,
-):
+def pre_run_check(devices_client_param: DevicesClient | Path, config: PyziggyConfig, no_mypy: bool):
     devices_client_module_path = get_devices_client_module_path(devices_client_param)
 
     if devices_client_module_path is not None:
@@ -288,7 +282,28 @@ def run(
 
         if not no_mypy:
             if run_mypy(devices_client_module_path) == False:
-                exit(1)
+                return False
+
+    return True
+
+
+def run(
+        devices_client_param: DevicesClient | Path,
+        config: PyziggyConfig,
+        skip_initial_query: bool = False,
+        no_mypy: bool = False,
+        flask_app: Flask | None = None,
+        pre_run_check_only: bool = False,
+):
+    check_success = pre_run_check(devices_client_param, config, no_mypy)
+
+    if not check_success:
+        exit(1)
+
+    if pre_run_check_only:
+        if check_success:
+            exit(0)
+        exit(1)
 
     devices_client = (
         devices_client_param
