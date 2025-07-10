@@ -1,0 +1,416 @@
+#!/bin/bash
+
+SELF_DIR="$(cd "$(dirname "$0")"; pwd)"
+
+# ------------------------------------------------------------------------------
+# Add the --pwd option to set the current working directory as the SELF_DIR
+# Also remote the --pwd argument from the argument list
+remaining_args=()
+
+for arg in "$@"; do
+    if [ "$arg" = "--pwd" ]; then
+        SELF_DIR="$(pwd)"
+    else
+        remaining_args+=("$arg")
+    fi
+done
+
+set -- "${remaining_args[@]}"
+# ------------------------------------------------------------------------------
+
+BASENAME=$(basename "$0")
+SELF_PATH="$SELF_DIR/$BASENAME"
+MIN_PYTHON_VERSION="3.12"
+VENV_PYTHON="$SELF_DIR/.venv/bin/python"
+PYTHON_WAS_SUCCESSFULLY_SETUP=0
+SERVICE_NAME="net.bebump.pyziggy"
+SERVICE_PATH="$HOME/Library/LaunchAgents/$SERVICE_NAME.plist"
+
+# This script will try to change this to a concrete executable under pyenv
+PYTHON_EXECUTABLE="python3"
+VENV_PYTHON_EXECUTABLE=""
+
+check_pyenv() {
+    if ! command -v pyenv &> /dev/null; then
+        return 1
+    fi
+
+    return 0
+}
+
+check_if_venv_exists() {
+    if [ -f "$VENV_PYTHON" ] && [ -x "$VENV_PYTHON" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+check_python_version() {
+    local python_cmd="$1"
+    local min_version="$2"
+
+    if ! version_output=$("$python_cmd" -c "import sys; exit(0 if tuple(map(int, sys.version.split()[0].split('.'))) >= tuple(map(int, '$min_version'.split('.'))) else 1)"); then
+        return 1
+    fi
+    return 0
+}
+
+check_and_try_setup_python() {
+    if [ "$PYTHON_WAS_SUCCESSFULLY_SETUP" -eq 1 ]; then
+        return 0
+    fi
+
+    echo "[pyziggy-setup] Checking Python environment setup..."
+
+    if check_if_venv_exists; then
+        if ! check_python_version "$VENV_PYTHON" $MIN_PYTHON_VERSION; then
+            echo "Error: .venv exists but its Python version is too old." \
+                 "Please create a new virtual environment with Python $MIN_PYTHON_VERSION or higher."
+            return 1
+        fi
+    fi
+
+    if check_pyenv; then
+        if ! pyenv latest $MIN_PYTHON_VERSION $> /dev/null; then
+            echo "[pyziggy-setup] No $MIN_PYTHON_VERSION version of Python was found in pyenv. Attempting to install..."
+
+            if ! pyenv install $MIN_PYTHON_VERSION; then
+                echo "[pyziggy-setup] Error: Failed to install Python $MIN_PYTHON_VERSION using pyenv."
+                return 1
+            fi
+        fi
+
+        PYTHON_EXECUTABLE="$(pyenv root)/versions/$(pyenv latest $MIN_PYTHON_VERSION)/bin/python"
+    else
+        if ! check_python_version $PYTHON_EXECUTABLE $MIN_PYTHON_VERSION; then
+            echo "[pyziggy-setup] Error: Python version doesn't meet the $MIN_PYTHON_VERSION+ criteria" \
+                 "and pyenv also isn't installed." \
+                 "It's recommended to install pyenv and retry this command. On MacOS you can use 'brew install pyenv'." \
+                 "Alternatively, you can install" \
+                 "Python $MIN_PYTHON_VERSION manually and ensure it's in your PATH."
+
+            return 1
+        fi
+    fi
+
+    if ! check_if_venv_exists; then
+        if ! $PYTHON_EXECUTABLE -m venv "$SELF_DIR"/.venv; then
+            echo "[pyziggy-setup] Error: Failed to create virtual environment at $SELF_DIR/.venv."
+            return 1
+        fi
+    fi
+
+    if [ ! -f "$SELF_DIR/requirements.txt" ]; then
+        echo "[pyziggy-setup] Adding requirements.txt"
+        echo "pyziggy==0.9.0" > "$SELF_DIR/requirements.txt"
+    fi
+
+    if [ ! -f "$SELF_DIR/.gitignore" ]; then
+        echo "[pyziggy-setup] Adding .gitignore"
+        cat << HERE_DOCUMENT_MARK > "$SELF_DIR/.gitignore"
+.idea
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache
+.DS_Store
+env
+venv
+.venv
+*.egg-info
+build
+test_logs
+HERE_DOCUMENT_MARK
+    fi
+
+    VENV_PYTHON_EXECUTABLE="$SELF_DIR/.venv/bin/python"
+
+    $VENV_PYTHON_EXECUTABLE -m pip install --upgrade pip
+
+    pushd "$SELF_DIR" > /dev/null
+    if ! $VENV_PYTHON_EXECUTABLE -m pip install -r "$SELF_DIR/requirements.txt"; then
+        echo "[pyziggy-setup] Error: Failed to install packages from requirements.txt."
+        return 1
+    fi
+    popd > /dev/null
+
+    echo "[pyziggy-setup] Python environment setup complete."
+    PYTHON_WAS_SUCCESSFULLY_SETUP=1
+    return 0
+}
+
+stop_service() {
+    if [[ "$(uname)" != "Darwin" ]]; then
+        echo "[pyziggy-setup] Warning: NOT stopping pyziggy service. This feature is only supported on macOS."
+        return 0
+    fi
+
+    mkdir -p ~/Library/LaunchAgents
+
+    if [ -f "$SERVICE_PATH" ] && (launchctl list | grep -q "$SERVICE_NAME"); then
+        echo "[pyziggy-setup] Stopping and removing pyziggy service..."
+        launchctl unload "$SERVICE_PATH" && rm $SERVICE_PATH
+
+        if [ $? -ne 0 ]; then
+            echo "[pyziggy-setup] Error: Failed to unload and remove service $SERVICE_PATH"
+            exit 1
+        else
+            echo "[pyziggy-setup] Done."
+        fi
+    else
+        echo "[pyziggy-setup] No pyziggy service installation found."
+    fi
+}
+
+start_service() {
+    local main_py_file="$1"
+
+    if [ -z "$main_py_file" ]; then
+        echo "Missing <main_py_file> argument. This should be the same that you would use with 'pyziggy run'."
+        exit 1
+    fi
+
+    if [[ "$(uname)" != "Darwin" ]]; then
+        echo "[pyziggy-setup] Warning: NOT deploying pyziggy service. This feature is only supported on macOS."
+        return 0
+    fi
+
+    if ! check_and_try_setup_python; then
+        echo "[pyziggy-setup] Error: Python environment setup failed. Cannot start service."
+        exit 1
+    fi
+
+    stop_service
+
+    echo "[pyziggy-setup] Installing pyziggy service at $SERVICE_PATH"
+
+    cat << HEREDOC > "$SERVICE_PATH"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$SERVICE_NAME</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>$VENV_PYTHON_EXECUTABLE</string>
+        <string>-m</string>
+        <string>pyziggy</string>
+        <string>-v</string>
+        <string>run</string>
+        <string>$SELF_DIR/$main_py_file</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>$SELF_DIR</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/$SERVICE_NAME/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/$SERVICE_NAME/stderr.log</string>
+</dict>
+</plist>
+HEREDOC
+
+    echo "[pyziggy-setup] Loading service..."
+    launchctl load ~/Library/LaunchAgents/net.bebump.pyziggy.plist
+
+    if [ $? -ne 0 ]; then
+        echo "[pyziggy-setup] Error: Failed to load service $SERVICE_PATH"
+        exit 1
+    else
+        echo "[pyziggy-setup] Done."
+        echo "[pyziggy-setup] Service logs are saved to /tmp/$SERVICE_NAME/stdout.log and /tmp/$SERVICE_NAME/stderr.log"
+    fi
+}
+
+sync_remote() {
+    local subcommand=$1
+    local main_py_file=$2
+
+    if [ -z "$subcommand" ]; then
+        echo "Usage: $0 sync-remote [start|stop]"
+        echo "  start <main_py_file> - Upload this directory to the remote and run the main file as a service"
+        echo ""
+        echo "  stop                 - Download resources from the remote directory and stop the remote service"
+        exit 1
+    fi
+
+    if [ "$subcommand" == "start" ]; then
+        if [ -z "$main_py_file" ]; then
+            echo "[pyziggy-setup] Error: Missing main Python file for deploy subcommand."
+            echo "Usage: $0 sync-remote deploy <main_py_file>"
+            exit 1
+        fi
+    fi
+
+    if [ ! -f "$SELF_DIR/remote.json" ]; then
+        echo "[pyziggy-setup] Error: remote.json file not found in $SELF_DIR."
+        exit 1
+    fi
+
+    if ! command -v jq &> /dev/null; then
+        echo "Error: jq is not installed or not in PATH. Please install jq and try again."
+        exit 1
+    fi
+
+    if ! command -v rsync &> /dev/null; then
+        echo "Error: rsync is not installed or not in PATH. Please install rsync with at" \
+             "least version 3.2.0 and try again."
+        exit 1
+    fi
+
+    RSYNC_VERSION=$(rsync --version | head -1 | awk '{print $3}')
+    REQUIRED_VERSION="3.2.0"
+
+    if ! printf '%s\n%s\n' "$REQUIRED_VERSION" "$RSYNC_VERSION" | sort -V -C; then
+        echo "Error: rsync version $RSYNC_VERSION found, but version $REQUIRED_VERSION or" \
+             "higher is required for .gitignore support. On MacOS you can use" \
+             "'brew install rsync' to get a recent version."
+        exit 1
+    fi
+
+    local SSH_HOST=$(jq -r '.ssh_host // empty' "$SELF_DIR/remote.json")
+    local SSH_USER=$(jq -r '.ssh_user // empty' "$SELF_DIR/remote.json")
+    local SSH_REMOTE_DIR=$(jq -r '.ssh_remote_dir // empty' "$SELF_DIR/remote.json")
+
+    if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_REMOTE_DIR" ]; then
+        echo "[pyziggy-setup] Error: One or more SSH settings (ssh_host, ssh_user, ssh_remote_dir)" \
+             "not found in remote.json or are empty."
+        exit 1
+    fi
+
+    local SSH_ARG1="$SSH_USER@$SSH_HOST"
+
+    ssh $SSH_ARG1 << HEREDOC
+mkdir -p $SSH_REMOTE_DIR || (echo "Failed to create directory $SSH_REMOTE_DIR"; exit 1)
+HEREDOC
+
+    if [ $? -ne 0 ]; then
+        echo "[pyziggy-setup] Error: Remote directory $SSH_REMOTE_DIR does not exist" \
+             "and could not be created."
+        exit 1
+    fi
+
+    RSYNC_BASE_COMMAND="rsync -avtzu --progress --exclude='.git' --filter=':- .gitignore'"
+    REMOTE_DIR="$SSH_ARG1:$SSH_REMOTE_DIR/"
+
+    case "$subcommand" in
+        start)
+            echo "[pyziggy-setup] Uploading files to remote..."
+
+            eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/" "$REMOTE_DIR"
+
+            if [ $? -ne 0 ]; then
+                echo "[pyziggy-setup] Error running when running the following command:" \
+                     "$RSYNC_BASE_COMMAND --delete \"$SELF_DIR/\" \"$REMOTE_DIR\""
+                exit 1
+            fi
+
+            # Check if requirements.txt contains an "-e " path and synchronize it
+            # This supports the development of pyziggy itself, where pyziggy can be checked out
+            # locally instead of being installed from PyPI.
+            LOCAL_DEV_PATHS=$(grep "^-e " "$SELF_DIR/requirements.txt" 2>/dev/null | sed 's/^-e //')
+
+            if [ -n "$LOCAL_DEV_PATHS" ]; then
+                echo "[pyziggy-setup] Synchronizing local development packages"
+                echo "$LOCAL_DEV_PATHS"
+                for DEV_PATH in $LOCAL_DEV_PATHS; do
+                    if [ -d "$SELF_DIR/$DEV_PATH" ]; then
+                        echo "[pyziggy-setup] Syncing local development package: $DEV_PATH"
+                        ssh $SSH_ARG1 << HEREDOC
+mkdir -p $SSH_REMOTE_DIR/$DEV_PATH || (echo "Failed to create directory $SSH_REMOTE_DIR/$DEV_PATH"; exit 1)
+HEREDOC
+
+                        if [ $? -ne 0 ]; then
+                            echo "[pyziggy-setup] Error: Remote directory "$SSH_REMOTE_DIR/$DEV_PATH" does not exist" \
+                                 "and could not be created."
+                            exit 1
+                        fi
+
+                        eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/$DEV_PATH/" $REMOTE_DIR/$DEV_PATH/
+                    else
+                        echo "[pyziggy-setup] Warning: Local development path not found: $DEV_PATH." \
+                             "Is this an absolute path? This feature only works with relative paths."
+                    fi
+                done
+            fi
+
+            ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
+$SSH_REMOTE_DIR/$BASENAME setup
+HERE_DOCUMENT_MARK
+
+            if [ $? -ne 0 ]; then
+                echo "[pyziggy-setup] Failed setting up remote Python environment."
+                exit 1
+            fi
+
+            ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
+$SSH_REMOTE_DIR/$BASENAME start "$main_py_file"
+HERE_DOCUMENT_MARK
+            ;;
+
+        stop)
+            echo "[pyziggy-setup] Downloading files from remote..."
+
+            eval $RSYNC_BASE_COMMAND "$REMOTE_DIR" "$SELF_DIR/"
+
+            if [ $? -ne 0 ]; then
+                echo "[pyziggy-setup] Error running when running the following command:" \
+                     "$RSYNC_BASE_COMMAND \"$REMOTE_DIR\" \"$SELF_DIR/\""
+                exit 1
+            fi
+
+            echo "[pyziggy-setup] Stopping remote service..."
+            ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
+$SSH_REMOTE_DIR/$BASENAME stop
+HERE_DOCUMENT_MARK
+            ;;
+    esac
+}
+
+case "$1" in
+    setup)
+        if ! check_and_try_setup_python; then
+            exit 1
+        fi
+        ;;
+    sync-remote)
+        sync_remote $2 $3
+        ;;
+    start)
+        start_service $2
+        ;;
+    stop)
+        stop_service
+        ;;
+    *)
+        echo "Usage: $0 [setup|sync-remote|start-service|stop-service]"
+        echo "  setup                - Set up this directory: \"$SELF_DIR\""
+        echo "                         for pyziggy development. This creates a .venv subdirectory with"
+        echo "                         an appropriate Python version, and if necessary, create a new"
+        echo "                         requirements.txt file with pyziggy. It then installs requirements.txt"
+        echo "                         in the .venv directory."
+        echo ""
+        echo "  sync-remote          - This is a combination of setup, sync-remote and then calling"
+        echo "                         start-service or stop-service on the remote"
+        echo ""
+        echo "  start <main_py_file> - Installs and starts 'pyziggy run main_py_file' as a service"
+        echo ""
+        echo "  stop                 - Stops the pyziggy service if it is running"
+        echo ""
+        echo "Options:"
+        echo "  --pwd                - Instead of the directory that pyziggy-setup is located in, set up the"
+        echo "                         CWD for development"
+        exit 1
+        ;;
+esac
