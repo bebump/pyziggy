@@ -166,6 +166,11 @@ start_service() {
 
     stop_service
 
+    if ! $VENV_PYTHON_EXECUTABLE -m pyziggy check $SELF_DIR/$main_py_file; then
+        echo "[pyziggy-setup] Error: The automation module '$main_py_file' failed the pre-launch check. Aborting."
+        exit 1
+    fi
+
     echo "[pyziggy-setup] Installing pyziggy service at $SERVICE_PATH"
 
     cat << HEREDOC > "$SERVICE_PATH"
@@ -181,7 +186,6 @@ start_service() {
         <string>$VENV_PYTHON_EXECUTABLE</string>
         <string>-m</string>
         <string>pyziggy</string>
-        <string>-v</string>
         <string>run</string>
         <string>$SELF_DIR/$main_py_file</string>
     </array>
@@ -232,6 +236,10 @@ sync_remote() {
         if [ -z "$main_py_file" ]; then
             echo "[pyziggy-setup] Error: Missing main Python file for deploy subcommand."
             echo "Usage: $0 sync-remote deploy <main_py_file>"
+            exit 1
+        fi
+        if [ ! -f "$SELF_DIR/$main_py_file" ]; then
+            echo "[pyziggy-setup] Error: The specified main Python file '$main_py_file' does not exist in $SELF_DIR."
             exit 1
         fi
     fi
