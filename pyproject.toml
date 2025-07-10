@@ -1,6 +1,6 @@
 [project]
 name = "pyziggy"
-version = "0.1.0"
+version = "0.9.0"
 authors = [
   { name="Attila Szarvas", email="attila.szarvas@gmail.com" },
 ]

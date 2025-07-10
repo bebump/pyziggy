@@ -188,7 +188,7 @@ def run_mypy(
     print(f"Running mypy on {python_script_path}...")
 
     result = subprocess.run(
-        ["mypy", "--check-untyped-defs", "--strict-equality", str(python_script_path)],
+        [sys.executable, "-m", "mypy", "--check-untyped-defs", "--strict-equality", str(python_script_path)],
         env=env,
     )
 
@@ -274,7 +274,7 @@ def get_devices_client_module_path(
     return None
 
 
-def quicklaunch(
+def run(
     devices_client_param: DevicesClient | Path,
     config: PyziggyConfig,
     skip_initial_query: bool = False,
