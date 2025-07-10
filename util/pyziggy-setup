@@ -1,23 +1,6 @@
 #!/bin/bash
 
 SELF_DIR="$(cd "$(dirname "$0")"; pwd)"
-
-# ------------------------------------------------------------------------------
-# Add the --pwd option to set the current working directory as the SELF_DIR
-# Also remote the --pwd argument from the argument list
-remaining_args=()
-
-for arg in "$@"; do
-    if [ "$arg" = "--pwd" ]; then
-        SELF_DIR="$(pwd)"
-    else
-        remaining_args+=("$arg")
-    fi
-done
-
-set -- "${remaining_args[@]}"
-# ------------------------------------------------------------------------------
-
 BASENAME=$(basename "$0")
 SELF_PATH="$SELF_DIR/$BASENAME"
 MIN_PYTHON_VERSION="3.12"
