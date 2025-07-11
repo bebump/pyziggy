@@ -260,7 +260,7 @@ sync_remote() {
         exit 1
     fi
 
-    RSYNC_VERSION=$(rsync --version | head -1 | awk '{print $3}')
+    RSYNC_VERSION=$(rsync --version | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
     REQUIRED_VERSION="3.2.0"
 
     if ! printf '%s\n%s\n' "$REQUIRED_VERSION" "$RSYNC_VERSION" | sort -V -C; then
