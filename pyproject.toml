@@ -4,7 +4,7 @@ version = "0.9.0"
 authors = [
   { name="Attila Szarvas", email="attila.szarvas@gmail.com" },
 ]
-description = "A small example package"
+description = "Autogenerates Python classes for communicating with Zigbee2MQTT"
 readme = "README.md"
 requires-python = ">=3.12, <3.14"
 dependencies = [
