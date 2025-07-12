@@ -63,7 +63,7 @@ Our complete home automation project is available at https://github.com/bebump/p
 
 ## Deploying automations to remote machines over SSH
 
-This chapter is about using the `util/pyziggy-setup.sh` script.
+This chapter is about using the `util/pyziggy-setup` script.
 
 It can automate setting up a directory for development by installing the right Python version and creating a virtual environment referring to it. And it can do this on a remote machine as well, and sync between your development environment and the remote.
 
@@ -79,13 +79,13 @@ On MacOS brew can install both
 brew install pyenv rsync
 ```
 
-Now you can download `pyziggy-setup.sh` and place it in the directory that you want to use for development. Make it executable:
+Now you can download `pyziggy-setup` and place it in the directory that you want to use for development. Make it executable:
 
 ```
-chmod u+x pyziggy-setup.sh
+chmod u+x pyziggy-setup
 ```
 
-The help displayed by executing `./pyziggy-setup.sh` should walk you through setting up your environment, and inform you about how to then deploy your automations to a remote machine over SSH.
+The help displayed by executing `./pyziggy-setup` should walk you through setting up your environment, and inform you about how to then deploy your automations to a remote machine over SSH.
 
 ## About threading
 
