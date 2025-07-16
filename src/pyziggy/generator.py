@@ -25,7 +25,7 @@ from .device_bases.device_base_requirements import (
     BaseClassRequirement,
 )
 from .device_bases.device_base_rules import device_base_rules
-from .message_loop import message_loop
+from .message_loop import message_loop, MessageLoopTimer
 from .mqtt_client import MqttClient, MqttSubscriber
 from .parser import (
     NumericParameterDefinition,
@@ -71,8 +71,8 @@ class EnumClassGenerator:
             code.append(CodeLine(f"from enum import Enum\n\n"))
 
         for (
-            enum_values_storage,
-            enum_name,
+                enum_values_storage,
+                enum_name,
         ) in self.enum_name_for_enum_values_storage.items():
             code.append(CodeLine(f"class {enum_name}(Enum):", CodeIndent.INDENT))
 
@@ -205,11 +205,11 @@ class ClassGenerator:
         self._classes: Dict[str, List[CodeLine]] = {}
 
     def generate_class(
-        self,
-        name_prefix: str,
-        init_code: List[CodeLine],
-        base_class_names: List[str] = [],
-        avoid_duplicate_class_impls: bool = False,
+            self,
+            name_prefix: str,
+            init_code: List[CodeLine],
+            base_class_names: List[str] = [],
+            avoid_duplicate_class_impls: bool = False,
     ):
         """
 
@@ -250,8 +250,8 @@ class ClassGenerator:
             inherits = f"({lines[0].line})" if lines[0].line else ""
 
             lines = [CodeLine(f"class {name}{inherits}:", CodeIndent.INDENT)] + lines[
-                1:
-            ]
+                                                                                1:
+                                                                                ]
 
             if lines[-1] == CodeLine("", CodeIndent.UNINDENT):
                 lines[-1] = CodeLine("", CodeIndent.UNINDENT2)
@@ -290,10 +290,10 @@ class ClassSkeletonArg:
 
 class ClassSkeletonEntry:
     def __init__(
-        self,
-        member_name: str | None,
-        initializer_expr: str,
-        arguments: List[ClassSkeletonArg],
+            self,
+            member_name: str | None,
+            initializer_expr: str,
+            arguments: List[ClassSkeletonArg],
     ):
         self.member_name: str | None = member_name
         self.initializer_expr: str = initializer_expr
@@ -362,7 +362,7 @@ class ClassSkeleton:
 
 
 def get_initialization_arguments(
-    cg: ClassGenerator, parameter: ParameterBaseDefinition
+        cg: ClassGenerator, parameter: ParameterBaseDefinition
 ):
     def str_or_none(value_opt: Any) -> str | None:
         if value_opt is None:
@@ -403,7 +403,7 @@ def quoted(x):
 
 
 def generate_class_skeleton(
-    cg: ClassGenerator, parameters: List[ParameterBaseDefinition]
+        cg: ClassGenerator, parameters: List[ParameterBaseDefinition]
 ):
     skeleton = ClassSkeleton(cg)
 
@@ -561,7 +561,9 @@ from pyziggy.device_bases import *
 
     available_devices: List[CodeLine] = [
         CodeLine("class AvailableDevices(DevicesClient):", CodeIndent.INDENT),
-        CodeLine("def __init__(self, impl: MqttClientImpl | None = None):", CodeIndent.INDENT),
+        CodeLine(
+            "def __init__(self, impl: MqttClientImpl | None = None):", CodeIndent.INDENT
+        ),
         CodeLine("super().__init__(impl)"),
     ]
 
@@ -748,11 +750,21 @@ class Z2MDevicesParser(MqttSubscriber):
     def __init__(self, output: Path):
         super().__init__("bridge/devices")
         self.output: Path = output
+        self.timer = MessageLoopTimer(self.timer_callback)
+        self.timer.start(5)
 
     @override
     def _on_message(self, payload: Dict[Any, Any]) -> None:
+        self.timer.stop()
         generate_devices_client(payload, self.output)
         message_loop.stop()
+
+    def timer_callback(self, timer: MessageLoopTimer):
+        timer.stop()
+        print(
+            f'Failed to acquire "bridge/devices" message in time. Maybe restart zigbee2mqtt?'
+        )
+        exit(1)
 
 
 class DevicesGenerator(MqttClient):
