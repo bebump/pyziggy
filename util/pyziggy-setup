@@ -232,7 +232,7 @@ sync_remote() {
         exit 1
     fi
 
-    if [ "$subcommand" == "start" ]; then
+    if [ "$subcommand" = "start" ]; then
         if [ -z "$main_py_file" ]; then
             echo "[pyziggy-setup] Error: Missing main Python file for deploy subcommand."
             echo "Usage: $0 sync-remote deploy <main_py_file>"
