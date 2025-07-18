@@ -33,7 +33,7 @@ At the same time pyziggy comes with flask integration, so it's easy to create cu
 
 ## Getting started
 
-Pyziggy requires Python 3.12 at minimum. It has also been tested with 3.13.
+Pyziggy requires Python 3.12+.
 
 ```
 pip install pyziggy
