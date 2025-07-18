@@ -307,6 +307,17 @@ HEREDOC
                 exit 1
             fi
 
+            # We assume the secrets directory is in .gitignore and the above command wouldn't sync it
+            if [ -d "$SELF_DIR/secrets" ]; then
+                eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/secrets/" "$SSH_ARG1:$SSH_REMOTE_DIR/secrets/"
+
+                if [ $? -ne 0 ]; then
+                    echo "[pyziggy-setup] Error running when running the following command:" \
+                         "$RSYNC_BASE_COMMAND --delete \"$SELF_DIR/secrets\" \"$SSH_ARG1:$SSH_REMOTE_DIR/secrets/\""
+                    exit 1
+                fi
+            fi
+
             # Check if requirements.txt contains an "-e " path and synchronize it
             # This supports the development of pyziggy itself, where pyziggy can be checked out
             # locally instead of being installed from PyPI.
@@ -358,6 +369,14 @@ HERE_DOCUMENT_MARK
             if [ $? -ne 0 ]; then
                 echo "[pyziggy-setup] Error running when running the following command:" \
                      "$RSYNC_BASE_COMMAND \"$REMOTE_DIR\" \"$SELF_DIR/\""
+                exit 1
+            fi
+
+            ssh $SSH_ARG1 "test -d $SSH_REMOTE_DIR/secrets" && \
+                eval $RSYNC_BASE_COMMAND "$SSH_ARG1:$SSH_REMOTE_DIR/secrets/" "$SELF_DIR/secrets/"
+
+            if [ $? -ne 0 ]; then
+                echo "[pyziggy-setup] Failed to download secrets directory from remote."
                 exit 1
             fi
 
