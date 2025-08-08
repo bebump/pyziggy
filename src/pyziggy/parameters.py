@@ -182,6 +182,9 @@ class SettableNumericParameter(NumericParameter):
         self._stale = True
 
     def set(self, value: float) -> None:
+        """
+        The passed in value will be clamped to the permitted range.
+        """
         value = min(self._max_value, max(self._min_value, value))
 
         if value != self.get() or self._stale:
@@ -200,14 +203,35 @@ class SettableNumericParameter(NumericParameter):
         self._stale = False
 
     def set_normalized(self, value: float) -> None:
+        """
+        Set the parameter's value by passing a number between 0.0 and 1.0.
+
+        This value will be automatically converted to the range of the MQTT
+        parameter e.g. a typical brightness parameter will have raw values
+        between 0 and 254, and a color_temp parameter between 250 and 454.
+        Calling set_normalized(0.0) or set_normalized(1.0) will set both to
+        their respective minimum or maximum values.
+
+        The passed in value will be clamped to the permitted range.
+        """
         self.set(
             float(round(value * (self._max_value - self._min_value) + self._min_value))
         )
 
     def add(self, value: float) -> None:
+        """
+        Equivalent to calling set(get() + value).
+
+        The changed value will be clamped to the permitted range.
+        """
         self.set(self.get() + value)
 
     def add_normalized(self, value: float) -> None:
+        """
+        Equivalent to calling set_normalized(get_normalized() + value).
+
+        The changed value will be clamped to the permitted range.
+        """
         self.set_normalized(self.get_normalized() + value)
 
 
