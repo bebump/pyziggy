@@ -4,13 +4,14 @@ import unittest
 from pathlib import Path
 from typing import override, Type
 
+import pyziggy.message_loop as ml
+from generate import create_and_get_devices_client
 from pyziggy import workarounds
 from pyziggy.parameters import NumericParameter
 from pyziggy.testing import MessageEvent
 from pyziggy.testing import PlaybackMqttClientImpl, RecordingMqttClientImpl
 from pyziggy.testing import create_connection_ascii_art
 from pyziggy.util.util import TimedRunner
-from generate import create_and_get_devices_client
 
 
 # Interprets the provided path constituents relative to the location of this
@@ -65,6 +66,8 @@ def connect_to_mqtt_and_record_traffic(automation_class: Type[TimedRunner]):
 
 
 def test_automation_with_mock_mqtt_connection(automation_class: Type[TimedRunner]):
+    ml.time_source = ml.FastForwardTimeSource()
+
     ensure_devices_client_setup()
 
     from pyziggy_autogenerate.available_devices import AvailableDevices
@@ -94,7 +97,7 @@ def test_automation_with_mock_mqtt_connection(automation_class: Type[TimedRunner
     return playback_impl.playback_success()
 
 
-class TestStringMethods(unittest.TestCase):
+class AutomationTests(unittest.TestCase):
     def setUp(self):
         ensure_devices_client_setup()
 

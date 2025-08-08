@@ -1,6 +1,5 @@
 # pyziggy - Run automation scripts that interact with zigbee2mqtt.
 # Copyright (C) 2025 Attila Szarvas
-#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -17,12 +16,12 @@
 from __future__ import annotations
 
 import logging
-import time
 from abc import abstractmethod
 from enum import Enum
 from typing import Dict, Union, List, Any, final, override
 from typing import Type, TypeVar
 
+from . import message_loop as ml
 from .broadcasters import Broadcaster, AnyBroadcaster
 
 logger = logging.getLogger(__name__)
@@ -62,7 +61,7 @@ class ParameterBase(Broadcaster):
 
     @abstractmethod
     def _append_dictionary_sent_to_device(
-        self, out_dict: Dict[str, Union[bool, int, str]]
+            self, out_dict: Dict[str, Union[bool, int, str]]
     ) -> None:
         pass
 
@@ -114,7 +113,7 @@ class NumericParameter(ParameterBase):
         if self._reported_timestamp - self._requested_timestamp > 0.2:
             return True
 
-        if time.perf_counter() - self._reported_timestamp > 1.0:
+        if ml.time_source.perf_counter() - self._reported_timestamp > 1.0:
             return True
 
         return False
@@ -136,7 +135,7 @@ class NumericParameter(ParameterBase):
         old_value = self.get()
         new_value = self._transform_mqtt_to_internal_value(value)
         old_reported_timestamp = self._reported_timestamp
-        new_reported_timestamp = time.perf_counter()
+        new_reported_timestamp = ml.time_source.perf_counter()
 
         if old_value != new_value or self._always_call_listeners_on_report:
             if self._use_synchronous_callbacks:
@@ -153,7 +152,7 @@ class NumericParameter(ParameterBase):
     @final
     @override
     def _append_dictionary_sent_to_device(
-        self, out_dict: Dict[str, Union[bool, int, str]]
+            self, out_dict: Dict[str, Union[bool, int, str]]
     ) -> None:
         if not self._should_send_to_device:
             return
@@ -204,7 +203,7 @@ class SettableNumericParameter(NumericParameter):
 
         if value != self.get() or self._stale:
             self._requested_value = min(self._max_value, max(self._min_value, value))
-            self._requested_timestamp = time.perf_counter()
+            self._requested_timestamp = ml.time_source.perf_counter()
             self._should_send_to_device = True
             self._should_call_listeners = True
 
@@ -414,7 +413,7 @@ class CompositeParameter(ParameterBase):
 
         for param in self._get_subparameters():
             should_device_be_queryied = (
-                should_device_be_queryied or param._should_device_be_queryied()
+                    should_device_be_queryied or param._should_device_be_queryied()
             )
 
         return should_device_be_queryied

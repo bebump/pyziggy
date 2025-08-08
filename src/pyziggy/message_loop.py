@@ -16,7 +16,9 @@
 
 from __future__ import annotations
 
+import datetime
 import threading
+import time
 from abc import abstractmethod
 from threading import Timer
 from typing import Callable, Dict, Any, final
@@ -70,6 +72,22 @@ class MessageLoop(metaclass=Singleton):
             m()
 
     def run(self):
+        """
+        Enters an infinite loop processing and dispatching messages. To exit
+        the loop call stop().
+
+        A minimal self-contained example of this is as follows:
+
+        ```
+        from pyziggy import message_loop as ml
+
+        def start():
+            mt.message_loop.stop()
+
+        ml.message_loop.post_message(start)
+        ml.message_loop.run()
+        ```
+        """
         self._loop_should_quit = False
         messages = []
 
@@ -116,35 +134,197 @@ class AsyncUpdater:
         message_loop.post_message(self._handle_async_update)
 
 
+class AsyncCallback(AsyncUpdater):
+    def __init__(self, callback: Callable[[], None]):
+        self._callback = callback
+
+    def trigger_async_update(self):
+        self._trigger_async_update()
+
+    @final
+    def _handle_async_update(self):
+        self._callback()
+
+
 message_loop = MessageLoop()
 
 
-class MessageLoopTimer:
-    def __init__(self, callback: Callable[[MessageLoopTimer], None]):
-        self._callback: Callable[[MessageLoopTimer], None] = callback
-        self._timer = Timer(1, self._timer_callback)
-        self._should_stop = False
-        self._duration: float = 0
+class TimeSource:
+    @abstractmethod
+    def perf_counter(self) -> float:
+        pass
 
-        message_loop.on_stop.add_listener(self.stop)
+    @abstractmethod
+    def time(self) -> float:
+        pass
+
+    @abstractmethod
+    def now(self) -> datetime.datetime:
+        pass
+
+
+class SystemTimeSource(TimeSource):
+    @final
+    def perf_counter(self) -> float:
+        return time.perf_counter()
+
+    @final
+    def time(self) -> float:
+        return time.time()
+
+    @final
+    def now(self) -> datetime.datetime:
+        return datetime.datetime.now()
+
+
+class FastForwardTimeSource(TimeSource):
+    def __init__(self):
+        self._ahead_by: float = 0
+
+    def fast_forward_by(self, seconds: float):
+        self._ahead_by += seconds
+
+    @final
+    def perf_counter(self) -> float:
+        return time.perf_counter() + self._ahead_by
+
+    @final
+    def time(self) -> float:
+        return time.time() + self._ahead_by
+
+    @final
+    def now(self) -> datetime.datetime:
+        return datetime.datetime.now() + datetime.timedelta(seconds=self._ahead_by)
+
+
+time_source: TimeSource = SystemTimeSource()
+
+
+class MessageLoopTimer:
+    """
+    AmazeTimer objects should only be created, started and stopped on the
+    message thread.
+    """
+
+    _running_timers: list[MessageLoopTimer] = []
+    _stopped_timers: list[MessageLoopTimer] = []
+    _last_advance_time = time_source.perf_counter()
+    _timer = Timer(1, lambda: MessageLoopTimer._timer_thread_callback())
+    _async_callback = AsyncCallback(lambda: MessageLoopTimer._message_callback_dispatch())
+    _dispatch_counter: int = 0
+
+    def __init__(self, callback: Callable[[MessageLoopTimer], None]):
+        self._duration: float = 0
+        self._wait_time: float = 0
+        self._should_stop = False
+        self._in_running_timers = False
+        self._callback = callback
 
     def start(self, duration: float):
-        self._timer.cancel()
         self._should_stop = False
         self._duration = duration
-        self._timer = Timer(duration, self._timer_callback)
-        self._timer.start()
+        self._wait_time = duration
+
+        MessageLoopTimer._advance_timers()
+
+        if not self._in_running_timers:
+            MessageLoopTimer._running_timers.append(self)
+            self._in_running_timers = True
+
+        MessageLoopTimer._reshuffle_timers()
+        MessageLoopTimer._update_timer_thread()
 
     def stop(self):
         self._should_stop = True
-        self._timer.cancel()
 
-    def _message_callback(self):
+    def _timer_callback(self):
         if not self._should_stop:
             self._callback(self)
 
-        if not self._should_stop:
-            self.start(self._duration)
+    @classmethod
+    def get_time_source(cls) -> TimeSource:
+        """
+        Returns the current time source used by the message loop timers.
+        """
+        return time_source
 
-    def _timer_callback(self):
-        message_loop.post_message(self._message_callback)
+    @classmethod
+    def _reshuffle_timers(cls):
+        new_timers = []
+
+        for t in cls._running_timers:
+            if t._should_stop:
+                t._in_running_timers = False
+                continue
+
+            new_timers.append(t)
+
+        cls._running_timers = new_timers
+        cls._running_timers = sorted(cls._running_timers, key=lambda t: t._wait_time)
+
+    @classmethod
+    def _advance_timers(cls):
+        now = time_source.perf_counter()
+        elapsed = now - cls._last_advance_time
+        cls._last_advance_time = now
+
+        for timer in cls._running_timers:
+            timer._wait_time -= elapsed
+
+    @classmethod
+    def _timer_thread_callback(cls):
+        cls._async_callback.trigger_async_update()
+
+    @classmethod
+    def _update_timer_thread(cls):
+        if not cls._running_timers:
+            cls._timer.cancel()
+            return
+
+        time_until_next_callback = cls._running_timers[0]._wait_time
+
+        def clamp(value: float, low: float, high: float) -> float:
+            return max(low, min(value, high))
+
+        time_until_next_callback = clamp(time_until_next_callback, 0.001, 0.5)
+
+        if isinstance(time_source, FastForwardTimeSource):
+            time_source.fast_forward_by(time_until_next_callback + 0.001)
+            cls._timer_thread_callback()
+        else:
+            cls._timer = Timer(clamp(time_until_next_callback, 0.001, 0.5), cls._timer_thread_callback)
+            cls._timer.start()
+
+    @classmethod
+    def _message_callback_dispatch(cls):
+        if isinstance(time_source, FastForwardTimeSource):
+            if cls._dispatch_counter % 10 == 0:
+                cls._message_callback()
+            else:
+                cls._async_callback.trigger_async_update()
+
+            cls._dispatch_counter += 1
+            return
+
+        cls._message_callback()
+
+    @classmethod
+    def _message_callback(cls):
+        cls._advance_timers()
+        callback_start = time_source.perf_counter()
+
+        while time_source.perf_counter() - callback_start < 0.1:
+            if not cls._running_timers:
+                break
+
+            timer = cls._running_timers[0]
+
+            if timer._wait_time > 0:
+                break
+
+            timer._timer_callback()
+            timer._wait_time = timer._duration
+            cls._reshuffle_timers()
+            cls._advance_timers()
+
+        cls._update_timer_thread()
