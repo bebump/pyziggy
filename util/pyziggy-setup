@@ -109,10 +109,10 @@ HERE_DOCUMENT_MARK
 
     VENV_PYTHON_EXECUTABLE="$SELF_DIR/.venv/bin/python"
 
-    $VENV_PYTHON_EXECUTABLE -m pip install --upgrade pip
+    "$VENV_PYTHON_EXECUTABLE" -m pip install --upgrade pip
 
     pushd "$SELF_DIR" > /dev/null
-    if ! $VENV_PYTHON_EXECUTABLE -m pip install -r "$SELF_DIR/requirements.txt"; then
+    if ! "$VENV_PYTHON_EXECUTABLE" -m pip install -r "$SELF_DIR/requirements.txt"; then
         echo "[pyziggy-setup] Error: Failed to install packages from requirements.txt."
         return 1
     fi
@@ -166,7 +166,7 @@ start_service() {
 
     stop_service
 
-    if ! $VENV_PYTHON_EXECUTABLE -m pyziggy check $SELF_DIR/$main_py_file; then
+    if ! "$VENV_PYTHON_EXECUTABLE" -m pyziggy check "$SELF_DIR/$main_py_file"; then
         echo "[pyziggy-setup] Error: The automation module '$main_py_file' failed the pre-launch check. Aborting."
         exit 1
     fi
@@ -281,9 +281,10 @@ sync_remote() {
     fi
 
     local SSH_ARG1="$SSH_USER@$SSH_HOST"
+    SSH_REMOTE_DIR=$(ssh "$SSH_ARG1" "python3 -c \"import os; print(os.path.expanduser('$SSH_REMOTE_DIR'))\"")
 
     ssh $SSH_ARG1 << HEREDOC
-mkdir -p $SSH_REMOTE_DIR || (echo "Failed to create directory $SSH_REMOTE_DIR"; exit 1)
+mkdir -p "$SSH_REMOTE_DIR" || (echo "Failed to create directory $SSH_REMOTE_DIR"; exit 1)
 HEREDOC
 
     if [ $? -ne 0 ]; then
@@ -299,7 +300,7 @@ HEREDOC
         start)
             echo "[pyziggy-setup] Uploading files to remote..."
 
-            eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/" "$REMOTE_DIR"
+            eval $RSYNC_BASE_COMMAND --delete "\"$SELF_DIR/\"" "\"$REMOTE_DIR\""
 
             if [ $? -ne 0 ]; then
                 echo "[pyziggy-setup] Error running when running the following command:" \
@@ -309,7 +310,7 @@ HEREDOC
 
             # We assume the secrets directory is in .gitignore and the above command wouldn't sync it
             if [ -d "$SELF_DIR/secrets" ]; then
-                eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/secrets/" "$SSH_ARG1:$SSH_REMOTE_DIR/secrets/"
+                eval $RSYNC_BASE_COMMAND --delete "\"$SELF_DIR/secrets/\"" "\"$SSH_ARG1:$SSH_REMOTE_DIR/secrets/\""
 
                 if [ $? -ne 0 ]; then
                     echo "[pyziggy-setup] Error running when running the following command:" \
@@ -330,7 +331,7 @@ HEREDOC
                     if [ -d "$SELF_DIR/$DEV_PATH" ]; then
                         echo "[pyziggy-setup] Syncing local development package: $DEV_PATH"
                         ssh $SSH_ARG1 << HEREDOC
-mkdir -p $SSH_REMOTE_DIR/$DEV_PATH || (echo "Failed to create directory $SSH_REMOTE_DIR/$DEV_PATH"; exit 1)
+mkdir -p "$SSH_REMOTE_DIR/$DEV_PATH" || (echo "Failed to create directory $SSH_REMOTE_DIR/$DEV_PATH"; exit 1)
 HEREDOC
 
                         if [ $? -ne 0 ]; then
@@ -339,7 +340,7 @@ HEREDOC
                             exit 1
                         fi
 
-                        eval $RSYNC_BASE_COMMAND --delete "$SELF_DIR/$DEV_PATH/" $REMOTE_DIR/$DEV_PATH/
+                        eval $RSYNC_BASE_COMMAND --delete "\"$SELF_DIR/$DEV_PATH/\"" "\"$REMOTE_DIR/$DEV_PATH/\""
                     else
                         echo "[pyziggy-setup] Warning: Local development path not found: $DEV_PATH." \
                              "Is this an absolute path? This feature only works with relative paths."
@@ -348,7 +349,7 @@ HEREDOC
             fi
 
             ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
-$SSH_REMOTE_DIR/$BASENAME setup
+"$SSH_REMOTE_DIR/$BASENAME" setup
 HERE_DOCUMENT_MARK
 
             if [ $? -ne 0 ]; then
@@ -357,14 +358,14 @@ HERE_DOCUMENT_MARK
             fi
 
             ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
-$SSH_REMOTE_DIR/$BASENAME start "$main_py_file"
+"$SSH_REMOTE_DIR/$BASENAME" start "$main_py_file"
 HERE_DOCUMENT_MARK
             ;;
 
         stop)
             echo "[pyziggy-setup] Downloading files from remote..."
 
-            eval $RSYNC_BASE_COMMAND "$REMOTE_DIR" "$SELF_DIR/"
+            eval $RSYNC_BASE_COMMAND "\"$REMOTE_DIR\"" "\"$SELF_DIR/\""
 
             if [ $? -ne 0 ]; then
                 echo "[pyziggy-setup] Error running when running the following command:" \
@@ -372,19 +373,49 @@ HERE_DOCUMENT_MARK
                 exit 1
             fi
 
-            ssh $SSH_ARG1 "test -d $SSH_REMOTE_DIR/secrets" && \
-                eval $RSYNC_BASE_COMMAND "$SSH_ARG1:$SSH_REMOTE_DIR/secrets/" "$SELF_DIR/secrets/"
+            if ssh $SSH_ARG1 "test -d \"$SSH_REMOTE_DIR/secrets\""; then
+                eval $RSYNC_BASE_COMMAND "\"$SSH_ARG1:$SSH_REMOTE_DIR/secrets/\"" "\"$SELF_DIR/secrets/\""
 
-            if [ $? -ne 0 ]; then
-                echo "[pyziggy-setup] Failed to download secrets directory from remote."
+                if [ $? -ne 0 ]; then
+                    echo "[pyziggy-setup] Failed to download secrets directory from remote."
+                    exit 1
+                fi
+            fi
+
+            # Check if requirements.txt contains an "-e " path and synchronize it
+            # This supports the development of pyziggy itself, where pyziggy can be checked out
+            # locally instead of being installed from PyPI.
+            LOCAL_DEV_PATHS=$(grep "^-e " "$SELF_DIR/requirements.txt" 2>/dev/null | sed 's/^-e //')
+
+            if [ -n "$LOCAL_DEV_PATHS" ]; then
+                echo "[pyziggy-setup] Synchronizing local development packages"
+                echo "$LOCAL_DEV_PATHS"
+                for DEV_PATH in $LOCAL_DEV_PATHS; do
+                    mkdir -p "$SELF_DIR/$DEV_PATH"
+
+                    if [ -d "$SELF_DIR/$DEV_PATH" ]; then
+                        echo "[pyziggy-setup] Syncing local development package: $DEV_PATH"
+                        eval $RSYNC_BASE_COMMAND --delete "\"$REMOTE_DIR/$DEV_PATH/\"" "\"$SELF_DIR/$DEV_PATH/\""
+                    else
+                        echo "[pyziggy-setup] Warning: Failed to find or create Local development path: $DEV_PATH." \
+                             "Is this an absolute path? This feature only works with relative paths."
+                    fi
+                done
+            fi
+
+            if ! check_and_try_setup_python; then
                 exit 1
             fi
 
             echo "[pyziggy-setup] Stopping remote service..."
             ssh $SSH_ARG1 << HERE_DOCUMENT_MARK
-$SSH_REMOTE_DIR/$BASENAME stop
+"$SSH_REMOTE_DIR/$BASENAME" stop
 HERE_DOCUMENT_MARK
             ;;
+        *)
+        echo "Wrong subcommand passed to sync-remote. Possible subcommands: start|stop"
+        exit 1
+        ;;
     esac
 }
 
