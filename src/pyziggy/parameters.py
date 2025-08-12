@@ -85,9 +85,24 @@ class NumericParameter(ParameterBase):
         self._reported_timestamp: float = 0
         self._min_value: float = min_value
         self._max_value: float = max_value
+        self._always_call_listeners_on_report = False
 
     def set_use_synchronous_broadcast(self, value: bool):
         self._use_synchronous_callbacks = value
+
+    def set_always_call_listeners_on_report(self, value: bool):
+        """Calling this function with a True parameter means, that the
+           listeners are called every time a report is received from the MQTT
+           broker, even if the reported value is the same as before. By default
+           parameter listeners are only called when the parameter value changes.
+
+           This may be desirable for some devices' "action" parameter where
+           e.g. a button press is signalled by reporting the value of the action
+           parameter. Pressing a toggle button twice could be signalled by
+           reporting twice that the value of the action parameter is "toggle".
+           In such cases you always want to call the listeners.
+        """
+        self._always_call_listeners_on_report = value
 
     def _reported_value_is_probably_up_to_date(self):
         if self._should_send_to_device:
@@ -123,7 +138,7 @@ class NumericParameter(ParameterBase):
         old_reported_timestamp = self._reported_timestamp
         new_reported_timestamp = time.perf_counter()
 
-        if old_value != new_value:
+        if old_value != new_value or self._always_call_listeners_on_report:
             if self._use_synchronous_callbacks:
                 self._wants_to_call_listeners_synchronously_broadcaster._call_listeners(
                     lambda callback: callback(self)

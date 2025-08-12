@@ -92,6 +92,16 @@ def make_action_enum_parameters_use_sync_callbacks(dc: DevicesClient):
                 parameter.set_use_synchronous_broadcast(True)
 
 
+def make_action_enum_parameters_always_call_listeners(dc: DevicesClient):
+    for device in dc.get_devices():
+        for parameter in device.get_parameters():
+            if (
+                isinstance(parameter, EnumParameter)
+                and parameter.get_property_name() == "action"
+            ):
+                parameter.set_always_call_listeners_on_report(True)
+
+
 def make_setting_color_invalidate_color(dc: DevicesClient):
     def hs_was_set(device: LightWithColor):
         device.color_temp.mark_as_stale()
@@ -150,6 +160,10 @@ class Workarounds:
         self.make_action_enum_parameters_use_sync_callbacks = Workaround(
             make_action_enum_parameters_use_sync_callbacks,
             'Modifying EnumParameters with the "action" property to use synchronous callbacks.',
+        )
+        self.make_action_enum_parameters_always_call_listeners = Workaround(
+            make_action_enum_parameters_always_call_listeners,
+            'Modifying EnumParameters with the "action" property to call listeners on MQTT messages even if the action is unchanged',
         )
 
     def _get_workarounds(self) -> list[Workaround]:
