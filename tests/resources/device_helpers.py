@@ -52,7 +52,7 @@ class IkeaN2CommandRepeater(RepeatingActionBroadcaster):
 
 class PhilipsTapDialRotaryHelper:
     def __init__(self, remote: Philips_RDM002):
-        remote.action.set_use_synchronous_broadcast(True)
+        remote.action.set_call_listeners_synchronously(True)
 
         self.on_rotate = AnyBroadcaster()
         self._remote = remote

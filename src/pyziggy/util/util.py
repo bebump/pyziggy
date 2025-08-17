@@ -301,6 +301,9 @@ class TimedRunner:
     last it will call message_loop.stop().
 
     Example:
+
+    .. code-block:: python
+
         class Test(TimedRunner):
             @override
             def run(self):

@@ -89,7 +89,7 @@ def make_action_enum_parameters_use_sync_callbacks(dc: DevicesClient):
                 isinstance(parameter, EnumParameter)
                 and parameter.get_property_name() == "action"
             ):
-                parameter.set_use_synchronous_broadcast(True)
+                parameter.set_call_listeners_synchronously(True)
 
 
 def make_action_enum_parameters_always_call_listeners(dc: DevicesClient):

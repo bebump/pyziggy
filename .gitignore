@@ -9,5 +9,7 @@ venv
 .venv
 *.egg-info
 build
+_build
 test_logs
 dist
+generated

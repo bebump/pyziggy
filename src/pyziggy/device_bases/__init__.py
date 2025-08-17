@@ -11,7 +11,7 @@ from pyziggy.parameters import (
     SettableToggleParameter,
     SettableAndQueryableToggleParameter,
     CompositeParameter,
-    int_to_enum,
+    _int_to_enum,
 )
 
 class LightWithDimming:

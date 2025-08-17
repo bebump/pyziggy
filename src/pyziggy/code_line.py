@@ -33,7 +33,6 @@ class CodeLine:
         line: str = "",
         postindent: CodeIndent = CodeIndent.NONE,
     ):
-        assert isinstance(line, str)
         self.line = line
         self.postindent = postindent
 

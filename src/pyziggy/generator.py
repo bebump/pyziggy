@@ -128,7 +128,7 @@ class EnumParameterGenerator:
             )
             code.append(
                 CodeLine(
-                    f"return int_to_enum({enum}, int(self.get()))",
+                    f"return _int_to_enum({enum}, int(self.get()))",
                     CodeIndent.UNINDENT,
                 )
             )
@@ -544,7 +544,7 @@ from pyziggy.parameters import (
     SettableEnumParameter,
     BinaryParameter,
     SettableAndQueryableToggleParameter,
-    int_to_enum,
+    _int_to_enum,
     SettableAndQueryableBinaryParameter,
     SettableBinaryParameter,
     CompositeParameter,
@@ -712,7 +712,7 @@ from pyziggy.parameters import (
     SettableToggleParameter,
     SettableAndQueryableToggleParameter,
     CompositeParameter,
-    int_to_enum,
+    _int_to_enum,
 )
 
 """

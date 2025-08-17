@@ -1,6 +1,6 @@
-# pyziggy
+# User manual
 
-https://github.com/bebump/pyziggy
+<https://github.com/bebump/pyziggy>
 
 A framework to eliminate boilerplate when controlling Zigbee2MQTT with Python scripts.
 
@@ -15,6 +15,7 @@ Based on a configuration file the `pyziggy run` command will
 
 This way instead of composing and parsing MQTT messages, user scripts can mutate Python objects to interact with the Zigbee network. Using an IDE you should have full code completion to take the guesswork out of interacting with your smart devices.
 ```
+# Your IDE should offer valid choices after each press of .
 devices.color_bulb.brightness.set_normalized(0.5)
 ```
 
@@ -76,7 +77,7 @@ TODO:
 
 ## A full example
 
-Our complete home automation project is available at https://github.com/bebump/pyziggy-example.
+A complete automation project running in our home is available at <https://github.com/bebump/pyziggy-example>.
 
 ## Recipes
 

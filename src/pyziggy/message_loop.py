@@ -76,17 +76,15 @@ class MessageLoop(metaclass=Singleton):
         Enters an infinite loop processing and dispatching messages. To exit
         the loop call stop().
 
-        A minimal self-contained example of this is as follows:
+        A minimal self-contained example of this is as follows::
 
-        ```
-        from pyziggy import message_loop as ml
+            from pyziggy import message_loop as ml
 
-        def start():
-            mt.message_loop.stop()
+            def start():
+                mt.message_loop.stop()
 
-        ml.message_loop.post_message(start)
-        ml.message_loop.run()
-        ```
+            ml.message_loop.post_message(start)
+            ml.message_loop.run()
         """
         self._loop_should_quit = False
         messages = []
@@ -210,7 +208,9 @@ class MessageLoopTimer:
     _stopped_timers: list[MessageLoopTimer] = []
     _last_advance_time = time_source.perf_counter()
     _timer = Timer(1, lambda: MessageLoopTimer._timer_thread_callback())
-    _async_callback = AsyncCallback(lambda: MessageLoopTimer._message_callback_dispatch())
+    _async_callback = AsyncCallback(
+        lambda: MessageLoopTimer._message_callback_dispatch()
+    )
     _dispatch_counter: int = 0
 
     def __init__(self, callback: Callable[[MessageLoopTimer], None]):
@@ -292,7 +292,9 @@ class MessageLoopTimer:
             time_source.fast_forward_by(time_until_next_callback + 0.001)
             cls._timer_thread_callback()
         else:
-            cls._timer = Timer(clamp(time_until_next_callback, 0.001, 0.5), cls._timer_thread_callback)
+            cls._timer = Timer(
+                clamp(time_until_next_callback, 0.001, 0.5), cls._timer_thread_callback
+            )
             cls._timer.start()
 
     @classmethod
