@@ -14,6 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""
+Provides the functionality for the ``pyziggy run`` and ``pyziggy check`` subcommands.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -31,22 +35,27 @@ from flask import Flask
 
 from .devices_client import DevicesClient
 from .message_loop import message_loop
-from .workarounds import workarounds
+from .workarounds import applied_workarounds
 
 logger = logging.getLogger(__name__)
 
 
 class PyziggyConfig:
+    """
+    Used for parsing and checking the ``config.toml`` file, to be passed to
+    :func:`run_command`.
+    """
+
     def __init__(
-            self,
-            host: str,
-            port: int,
-            keepalive: int,
-            base_topic: str,
-            username: str | None,
-            password: str | None,
-            use_tls: bool,
-            flask_port: int,
+        self,
+        host: str,
+        port: int,
+        keepalive: int,
+        base_topic: str,
+        username: str | None,
+        password: str | None,
+        use_tls: bool,
+        flask_port: int,
     ):
         self.host = host
         self.port = port
@@ -57,7 +66,12 @@ class PyziggyConfig:
         self.password = password
         self.use_tls = use_tls
 
-    def write(self, config_file: Path):
+    def write(self, config_file: Path) -> None:
+        """
+        Writes the configuration information to the specified file. Currently, this
+        function isn't used by ``pyziggy``.
+        """
+
         with open(config_file, "w") as f:
             toml.dump(
                 {
@@ -79,6 +93,14 @@ class PyziggyConfig:
 
     @staticmethod
     def load(config_file: Path | str) -> PyziggyConfig | None:
+        """
+        Loads the specified configuration file, checks its correctness and returns a
+        :class:`PyziggyConfig` object if it passes all checks. Returns None otherwise.
+
+        This function is used by ``pyziggy run`` to load and parse the ``config.toml``
+        file in the current automation project directory.
+        """
+
         try:
             config = toml.load(config_file)
 
@@ -111,12 +133,22 @@ class PyziggyConfig:
 
     @staticmethod
     def create_default() -> PyziggyConfig:
+        """
+        Creates a default configuration object.
+        """
+
         return PyziggyConfig(
             "192.168.1.56", 1883, 60, "zigbee2mqtt", None, None, False, 5001
         )
 
     @staticmethod
-    def write_default(config_file: Path):
+    def write_default(config_file: Path) -> None:
+        """
+        Writes a default ``.toml`` file to the specified Path. This is used by the
+        ``pyziggy run`` command to create the default ``config.toml`` file if one isn't
+        present in the specified automation directory.
+        """
+
         default_config = """[mqtt_server]
 host = "192.168.1.56"
 port = 1883
@@ -138,7 +170,7 @@ flask_port = 5001
             f.write(default_config)
 
 
-def regenerate_device_definitions(available_devices_path: Path, config: PyziggyConfig):
+def _regenerate_device_definitions(available_devices_path: Path, config: PyziggyConfig):
     from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
@@ -156,7 +188,7 @@ def regenerate_device_definitions(available_devices_path: Path, config: PyziggyC
     generator._loop_forever()
 
 
-def regenerate_available_devices(project_root: Path, config: PyziggyConfig):
+def _regenerate_available_devices(project_root: Path, config: PyziggyConfig):
     autogenerate_dir = project_root / "pyziggy_autogenerate"
 
     if autogenerate_dir.exists():
@@ -171,11 +203,11 @@ def regenerate_available_devices(project_root: Path, config: PyziggyConfig):
     available_devices_path = autogenerate_dir / "available_devices.py"
 
     print(f"Regenerating device definitions in {available_devices_path.absolute()}...")
-    regenerate_device_definitions(available_devices_path, config)
+    _regenerate_device_definitions(available_devices_path, config)
 
 
-def run_mypy(
-        python_script_path: Path,
+def _run_mypy(
+    python_script_path: Path,
 ) -> bool:
     env = os.environ.copy()
 
@@ -188,14 +220,21 @@ def run_mypy(
     print(f"Running mypy on {python_script_path}...")
 
     result = subprocess.run(
-        [sys.executable, "-m", "mypy", "--check-untyped-defs", "--strict-equality", str(python_script_path)],
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--check-untyped-defs",
+            "--strict-equality",
+            str(python_script_path),
+        ],
         env=env,
     )
 
     return result.returncode == 0
 
 
-class ThreadedFlaskRunner:
+class _ThreadedFlaskRunner:
     def __init__(self, flask_app: Flask, port: int):
         from werkzeug.serving import make_server
 
@@ -212,7 +251,7 @@ class ThreadedFlaskRunner:
             self.thread.join(2)
 
 
-def install_sigint_handler():
+def _install_sigint_handler():
     def signal_handler(sig, frame):
         print("\nSIGINT received. Shutting down...")
         message_loop.stop()
@@ -223,7 +262,7 @@ def install_sigint_handler():
 T = TypeVar("T")
 
 
-def get_instance_of_type(module, type: Type[T]) -> Optional[T]:
+def _get_instance_of_type(module, type: Type[T]) -> Optional[T]:
     for name in dir(module):
         obj = getattr(module, name)
 
@@ -233,24 +272,24 @@ def get_instance_of_type(module, type: Type[T]) -> Optional[T]:
     return None
 
 
-def load_flask_object(devices_client_module_path: Path) -> Optional[Flask]:
+def _load_flask_object(devices_client_module_path: Path) -> Optional[Flask]:
     sys.path.append(str(devices_client_module_path.parent))
 
     devices_client_module = importlib.import_module(
         devices_client_module_path.name.replace(".py", "")
     )
 
-    return get_instance_of_type(devices_client_module, Flask)
+    return _get_instance_of_type(devices_client_module, Flask)
 
 
-def load_devices_client(devices_client_module_path: Path) -> DevicesClient:
+def _load_devices_client(devices_client_module_path: Path) -> DevicesClient:
     sys.path.append(str(devices_client_module_path.parent))
 
     devices_client_module = importlib.import_module(
         devices_client_module_path.name.replace(".py", "")
     )
 
-    devices_client = get_instance_of_type(devices_client_module, DevicesClient)
+    devices_client = _get_instance_of_type(devices_client_module, DevicesClient)
 
     if devices_client is None:
         print(f"Couldn't find DevicesClient instance in {devices_client_module_path}")
@@ -259,8 +298,8 @@ def load_devices_client(devices_client_module_path: Path) -> DevicesClient:
     return devices_client
 
 
-def get_devices_client_module_path(
-        devices_client_param: DevicesClient | Path,
+def _get_devices_client_module_path(
+    devices_client_param: DevicesClient | Path,
 ) -> Optional[Path]:
     if isinstance(devices_client_param, Path):
         return devices_client_param
@@ -274,28 +313,48 @@ def get_devices_client_module_path(
     return None
 
 
-def pre_run_check(devices_client_param: DevicesClient | Path, config: PyziggyConfig, no_mypy: bool):
-    devices_client_module_path = get_devices_client_module_path(devices_client_param)
+def _pre_run_check(
+    devices_client_param: DevicesClient | Path, config: PyziggyConfig, no_mypy: bool
+):
+    devices_client_module_path = _get_devices_client_module_path(devices_client_param)
 
     if devices_client_module_path is not None:
-        regenerate_available_devices(devices_client_module_path.parent, config)
+        _regenerate_available_devices(devices_client_module_path.parent, config)
 
         if not no_mypy:
-            if run_mypy(devices_client_module_path) == False:
+            if _run_mypy(devices_client_module_path) == False:
                 return False
 
     return True
 
 
-def run(
-        devices_client_param: DevicesClient | Path,
-        config: PyziggyConfig,
-        skip_initial_query: bool = False,
-        no_mypy: bool = False,
-        flask_app: Flask | None = None,
-        pre_run_check_only: bool = False,
-):
-    check_success = pre_run_check(devices_client_param, config, no_mypy)
+def run_command(
+    devices_client_param: DevicesClient | Path,
+    config: PyziggyConfig,
+    no_startup_query: bool = False,
+    no_mypy: bool = False,
+    flask_app: Flask | None = None,
+    pre_run_check_only: bool = False,
+) -> None:
+    """
+
+    :param devices_client_param: Either the DevicesClient object i.e. AvailableDevices, or the
+                                 path to the module file that contains this object e.g.
+                                 ``automation.py``. If it's the former, there is no need for
+                                 importing, and :func:`run` can be called from the containing
+                                 module file as well.
+    :param config: A configuration object encapsulating all validated arguments to the
+                   run subcommand. See :class:`PyziggyConfig`
+    :param no_startup_query: If set to True, the command won't query Z2M for parameter
+                             values on startup.
+    :param no_mypy: If set to True, the command won't run mypy prior to entering
+                    operation.
+    :param flask_app: A ``flask.Flask`` object to serve HTTP requests.
+    :param pre_run_check_only: Turns this function into the equivalent of the ``check``
+                               subcommand.
+    """
+
+    check_success = _pre_run_check(devices_client_param, config, no_mypy)
 
     if not check_success:
         exit(1)
@@ -308,23 +367,23 @@ def run(
     devices_client = (
         devices_client_param
         if isinstance(devices_client_param, DevicesClient)
-        else load_devices_client(devices_client_param)
+        else _load_devices_client(devices_client_param)
     )
 
     if isinstance(devices_client_param, Path):
-        flask_app = load_flask_object(devices_client_param)
+        flask_app = _load_flask_object(devices_client_param)
 
-    install_sigint_handler()
+    _install_sigint_handler()
 
     flask_runner = (
-        ThreadedFlaskRunner(flask_app, config.flask_port)
+        _ThreadedFlaskRunner(flask_app, config.flask_port)
         if flask_app is not None
         else None
     )
 
-    workarounds._apply(devices_client)
+    applied_workarounds._apply(devices_client)
 
-    if skip_initial_query:
+    if no_startup_query:
         print(
             "Using --skip_initial_query. Initial parameter values will not reflect the devices' true states."
         )

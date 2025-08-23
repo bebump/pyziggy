@@ -17,7 +17,7 @@
 from . import mqtt_client as mqtt_client
 from . import parameters as parameters
 from . import devices_client as devices_client
-from .run import run, PyziggyConfig
+from .run import run_command, PyziggyConfig
 from . import message_loop
 from .cli import main as pyziggy
-from .workarounds import workarounds as workarounds
+from .workarounds import applied_workarounds as applied_workarounds

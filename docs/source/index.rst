@@ -1,9 +1,11 @@
-The pyziggy framework
-=====================
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :hidden:
 
-   readme
+   The basics <self>
+   cookbook
+   cli
    api

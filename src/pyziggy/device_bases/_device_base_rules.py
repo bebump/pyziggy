@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .device_base_requirements import BaseClassRequirement
+from ._device_base_requirements import BaseClassRequirement
 from ..parser import ParameterAccessType
 from ..parser import ToggleParameterDefinition, NumericParameterDefinition, CompositeParameterDefinition
 

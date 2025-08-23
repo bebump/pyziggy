@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pyziggy.generator import generate_device_bases
 from pyziggy.generator import generate_devices_client
-from pyziggy.run import run_mypy
+from pyziggy.run import _run_mypy
 
 
 # Interprets the provided path constituents relative to the location of this
@@ -47,7 +47,7 @@ class TestStringMethods(unittest.TestCase):
         for artifact in ["automation.py", "device_helpers.py"]:
             shutil.copy(rel_to_py("resources", artifact), test_build_dir / artifact)
 
-        mypy_pass = run_mypy(test_build_dir / "automation.py")
+        mypy_pass = _run_mypy(test_build_dir / "automation.py")
 
         self.assertTrue(
             mypy_pass,

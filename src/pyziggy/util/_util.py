@@ -149,21 +149,49 @@ class Barriers:
 
 
 class Scalable:
+    """
+    Base class for types that you want to pass into a :class:`pyziggy.util.ScaleMapper`
+    as a parameter. For passing :class:`pyziggy.device_bases.LightWithDimming` objects
+    into a :class:`pyziggy.util.ScaleMapper`, use the
+    :class:`pyziggy.util.LightWithDimmingScalable` subclass of this type.
+    """
+
     @abstractmethod
-    def set_normalized(self, value: float):
+    def set_normalized(self, value: float) -> None:
+        """
+        Function called by :class:`pyziggy.util.ScaleMapper`. Override this function in
+        subclasses.
+
+        :param value: a value in the [0, 1] range.
+        """
         pass
 
     @abstractmethod
     def get_normalized(self) -> float:
-        pass
+        """
+        Function called by :class:`pyziggy.util.ScaleMapper`. Override this function in
+        subclasses.
+
+        :return: a value in the [0, 1] range
+        """
 
 
 class LightWithDimmingScalable(Scalable):
+    """
+    Wrapper for a :class:`pyziggy.device_bases.LightWithDimming` object that implements
+    the :class:`pyziggy.util.Scalable` interface. This wrapper can then be added to a
+    :class:`pyziggy.util.ScaleMapper`.
+    """
+
     def __init__(self, light: LightWithDimming):
         self._light = light
 
-    @override
+    @final
     def set_normalized(self, value: float):
+        """
+        Final overriden base function. Called by :class:`pyziggy.util.ScaleMapper`.
+        """
+
         self._light.brightness.set_normalized(value)
 
         if value > 0:
@@ -171,8 +199,12 @@ class LightWithDimmingScalable(Scalable):
         else:
             self._light.state.set(0)
 
-    @override
+    @final
     def get_normalized(self) -> float:
+        """
+        Final overriden base function. Called by :class:`pyziggy.util.ScaleMapper`.
+        """
+
         return (
             self._light.brightness.get_normalized()
             if self._light.state.get() > 0
@@ -181,6 +213,51 @@ class LightWithDimmingScalable(Scalable):
 
 
 class ScaleMapper:
+    """
+    .. caution:: This class is still a work in progress, although I'm using it daily and
+                 is probably the single most useful automation we have.
+
+    Maps multiple numeric parameters onto a single scale between 0 and 1.
+
+    Behaves as a single numeric parameter that you can set to a value between 0 and 1.
+    You can specify any number of numeric parameters, and associate each with
+    a range inside the :class:`ScaleMapper` 's global [0, 1] range.
+
+    This class was written for our home automation to control multiple lights with a
+    single rotary dial.
+
+    This way you can control e.g. three light bulbs as one. The first one turns on
+    gradually when the :class:`ScaleMapper` passes through the [0, 0.3] range. If you
+    keep increasing the :class:`ScaleMapper` 's value, the second bulb turns on, and
+    it's brightness keeps increasing, reaching its maximum when the :class:`ScaleMapper`
+    reaches the value 0.6. Meanwhile, the first bulb remains at maximum brightness.
+    Finally, the third bulb turns on at 0.6, and when the :class:`ScaleMapper` reaches
+    1.0 all three bulbs are at maximum brightness.
+
+    To achieve this, you'd use the following code::
+
+        ScaleMapper(
+            [
+                (L2S(devices.standing_lamp), 0.0, 0.3),
+                (L2S(devices.couch), 0.3, 0.6),
+                (L2S(devices.color_bulb), 0.6, 1.0),
+            ]
+        )
+
+    The ranges for the devices can overlap.
+
+    :param adjustables: List of tuples. Each element should contain a :class:`Scalable`,
+                        and two numbers marking the sub-range inside the
+                        :class:`ScaleMapper` 's [0, 1] range, where the scalable should
+                        be mapped.
+    :param barriers: An optional list of floats in the range [0, 1]. When increasing or
+                     decreasing the meta-parameter value, and it passes through any one
+                     of these values, the :class:`ScaleMapper` becomes inactive for
+                     half a second, ignoring parameter change requests for this duration.
+                     It also calls the ``barrier_activation_callback`` if specified.
+    :param barrier_activation_callback: A callback that can be used to e.g. emit a sound
+                                        when a barrier is hit.
+    """
     class _MockScalable(Scalable):
         def __init__(self):
             self.value = 0.0
@@ -222,7 +299,7 @@ class ScaleMapper:
         self._adjustables.extend(fake_lights)
 
     @staticmethod
-    def get_value_on_scale(
+    def _get_value_on_scale(
         adjustable: Tuple[Scalable, float, float],
         increment: float,
     ):
@@ -238,7 +315,7 @@ class ScaleMapper:
         return map_linear(value, low, high)
 
     @staticmethod
-    def get_value_for_scale(
+    def _get_value_for_scale(
         adjustable: Tuple[Scalable, float, float],
         scale_value: float,
     ):
@@ -253,9 +330,14 @@ class ScaleMapper:
 
         return clamp(n / d, 0, 1)
 
-    def add(self, increment: float):
+    def add(self, increment: float) -> None:
+        """
+        Add the specified value to the :class:`ScaleMapper` meta-parameter.
+
+        The resulting value will be clamped to the permitted range.
+        """
         values_on_scale = [
-            ScaleMapper.get_value_on_scale(adjustable, increment)
+            ScaleMapper._get_value_on_scale(adjustable, increment)
             for adjustable in self._adjustables
         ]
 
@@ -269,7 +351,7 @@ class ScaleMapper:
         scale_value = limited_scale_value
 
         for adjustable in self._adjustables:
-            new_value = ScaleMapper.get_value_for_scale(adjustable, scale_value)
+            new_value = ScaleMapper._get_value_for_scale(adjustable, scale_value)
             adjustable[0].set_normalized(new_value)
 
 
@@ -295,42 +377,46 @@ class RunThenExit:
 class TimedRunner:
     """
     Inherit from this class and override the run method to have a one-shot
-    timed script encapsulating a DevicesClient.
+    timed script.
 
-    The TimedRunner will run all commands at the right time and after the
-    last it will call message_loop.stop().
+    The :class:`TimedRunner` will run all commands in sequence waiting for the specified
+    interval between each code block. After the last block has been executed, it will
+    call :meth:`pyziggy.message_loop.MessageLoop.stop`.
 
-    Example:
+    You need to use a list of ``if`` statements exactly as in the example:
 
     .. code-block:: python
+
+        from pyziggy_autogenerate.available_devices import AvailableDevices
+
+        devices = AvailableDevices()
 
         class Test(TimedRunner):
             @override
             def run(self):
                 if self.wait(2):
-                    devices.tokabo.brightness.set_normalized(1)
-                    devices.tokabo.color_temp.set(454)
+                    devices.kitchen_light.brightness.set_normalized(1)
+                    devices.kitchen_light.color_temp.set(454)
 
                 if self.wait(1):
-                    devices.tokabo.state.set(1)
+                    devices.kitchen_light.state.set(1)
 
                 if self.wait(1):
-                    devices.tokabo.state.set(0)
+                    devices.kitchen_light.state.set(0)
 
                 if self.wait(1):
-                    devices.tokabo.color_temp.set(179)
+                    devices.kitchen_light.color_temp.set(179)
 
                 if self.wait(1):
-                    devices.tokabo.state.set(1)
+                    devices.kitchen_light.state.set(1)
 
                 if self.wait(1):
-                    devices.tokabo.color_temp.set(255)
+                    devices.kitchen_light.color_temp.set(255)
 
                 if self.wait(1):
-                    devices.tokabo.brightness.query_device()
+                    devices.kitchen_light.brightness.query_device()
 
         _ = Test(devices)
-        devices._loop_forever()
     """
 
     def __init__(self, client: DevicesClient):
@@ -344,18 +430,28 @@ class TimedRunner:
 
         client.on_connect.add_listener(self._setup_next_callback)
 
-    def set_stop_message_loop_when_done(self, stop: bool):
+    def set_stop_message_loop_when_done(self, should_stop: bool):
         """
-        Set whether to stop the message loop when done. The default value is True.
+        Sets whether to stop the message loop when done.
+
+        The default value for the underlying setting is True.
         """
-        self.stop_message_loop_when_done = stop
+        self.stop_message_loop_when_done = should_stop
 
     @abstractmethod
     def run(self):
+        """
+        Override this method with the timed script contents you need.
+        """
         pass
 
     @final
     def wait(self, seconds):
+        """
+        Waits for the specified amount of time relative to the previous invocation of
+        :meth:`wait` in the :meth:`run` function.
+        """
+
         activated = self._wait_id == self._wait_id_to_run
         self._wait_id += 1
 

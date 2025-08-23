@@ -14,6 +14,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""
+Classes synchronizing the various pyziggy tasks across threads.
+
+When pyziggy runs it enters an infinite loop in which it waits for MQTT messages. The
+thread on which this infinite loop is executed is referred to as the
+**message thread**.
+
+Code that wants to interact with the :mod:`pyziggy.parameters` needs to do this on the
+message thread. This module contains the tools to make this synchronization easy.
+
+Parameter change callbacks are called on the message thread, so they can safely access
+other parameters. Callbacks of the :class:`MessageLoopTimer` are also called on the
+message thread.
+
+Using :func:`MessageLoop.post_message` one can transfer a call happening on any thread to
+the message thread. This is used in the Flask examples to transfer an HTTP call handler
+to the message thread so that it can modify parameters.
+"""
+
 from __future__ import annotations
 
 import datetime
@@ -26,16 +45,16 @@ from typing import Callable, Dict, Any, final
 from .broadcasters import Broadcaster
 
 
-class Singleton(type):
+class _Singleton(type):
     _instances: Dict[type, Any] = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
 
-class AtomicInteger:
+class _AtomicInteger:
     def __init__(self, value: int = 0):
         self._value: int = value
         self._lock = threading.Lock()
@@ -59,7 +78,15 @@ class AtomicInteger:
         return old_value
 
 
-class MessageLoop(metaclass=Singleton):
+class MessageLoop(metaclass=_Singleton):
+    """
+    Class responsible for maintaining a queue of callbacks to be executed on the message
+    thread.
+
+    Must be used as a singleton. To interact with the message loop import the
+    :data:`pyziggy.message_loop.message_loop` object in your code.
+    """
+
     def __init__(self):
         self.on_stop = Broadcaster()
         self._condition = threading.Condition()
@@ -71,10 +98,10 @@ class MessageLoop(metaclass=Singleton):
             m = self._messages.pop(0)
             m()
 
-    def run(self):
+    def run(self) -> None:
         """
-        Enters an infinite loop processing and dispatching messages. To exit
-        the loop call stop().
+        Enters an infinite loop queuing and dispatching messages. To exit
+        the loop call :meth:`stop`.
 
         A minimal self-contained example of this is as follows::
 
@@ -104,20 +131,36 @@ class MessageLoop(metaclass=Singleton):
                 m = messages.pop(0)
                 m()
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Exits the infinite message loop and allows clean termination of the program.
+        """
+
         self.on_stop._call_listeners()
 
         with self._condition:
             self._loop_should_quit = True
             self._condition.notify()
 
-    def post_message(self, message: Callable[[], None]):
+    def post_message(self, message: Callable[[], None]) -> None:
+        """
+        Queues the callback for execution on the message thread.
+        """
+
         with self._condition:
             self._messages.append(message)
             self._condition.notify()
 
 
 class AsyncUpdater:
+    """
+    Helper class to transfer execution from any thread to the message thread.
+
+    Inherit from :class:`AsyncUpdater` and override :meth:`_handle_async_update`.
+    You can call :meth:`_trigger_async_update` from any thread, and this will queue a
+    message that will call :meth:`_handle_async_update` on the message thread.
+    """
+
     def __init__(self):
         pass
 
@@ -128,15 +171,28 @@ class AsyncUpdater:
 
     @final
     def _trigger_async_update(self):
+        """
+        You can call this method from any thread, and it will enqueue a call to
+        :meth:`_handle_async_update` on the message thread.
+        """
         message_loop = MessageLoop()
         message_loop.post_message(self._handle_async_update)
 
 
 class AsyncCallback(AsyncUpdater):
+    """
+    Helper class that wraps a callback into an :class:`AsyncUpdater`. The callback is
+    called once on the message thread after the :meth:`trigger_async_update` function
+    has been called on any thread.
+    """
+
     def __init__(self, callback: Callable[[], None]):
         self._callback = callback
 
-    def trigger_async_update(self):
+    def trigger_async_update(self) -> None:
+        """
+        Triggers a callback. Can be called from any thread.
+        """
         self._trigger_async_update()
 
     @final
@@ -144,10 +200,20 @@ class AsyncCallback(AsyncUpdater):
         self._callback()
 
 
+#: This is the module singleton object that all code directly interacting with the
+#: message loop should use. You can import this object and call
+#: :meth:`pyziggy.message_loop.MessageLoop.post_message` from any thread to
+#: schedule a callback to be executed on the message thread. You can also call the
+#: :meth:`pyziggy.message_loop.MessageLoop.stop` if you wish to terminate your
+#: program early.
 message_loop = MessageLoop()
 
 
 class TimeSource:
+    """
+    Base class for the time_source object used by the :class:`MessageLoopTimer`.
+    """
+
     @abstractmethod
     def perf_counter(self) -> float:
         pass
@@ -162,6 +228,11 @@ class TimeSource:
 
 
 class SystemTimeSource(TimeSource):
+    """
+    This source forwards all its calls to the functions of the same name in the `time`
+    and `datetime` modules.
+    """
+
     @final
     def perf_counter(self) -> float:
         return time.perf_counter()
@@ -176,10 +247,23 @@ class SystemTimeSource(TimeSource):
 
 
 class FastForwardTimeSource(TimeSource):
+    """
+    This source forwards all its calls to the functions of the same name in the `time`
+    and `datetime` modules, with the twist, that you can call the
+    :meth:`fast_forward_by` function to increment an internal time quantity that is
+    added to all returned values.
+    """
+
     def __init__(self):
         self._ahead_by: float = 0
 
-    def fast_forward_by(self, seconds: float):
+    def fast_forward_by(self, seconds: float) -> None:
+        """
+        Increments the internal quantity that's added to all returned values. Calling
+        this once with a parameter of 5 means, that all other member functions will
+        return times that are 5 seconds ahead of the system time.
+        """
+
         self._ahead_by += seconds
 
     @final
@@ -195,13 +279,25 @@ class FastForwardTimeSource(TimeSource):
         return datetime.datetime.now() + datetime.timedelta(seconds=self._ahead_by)
 
 
+#: A :class:`TimeSource` object that's used by all :class:`MessageLoopTimer` objects.
+#: By default this reference points to an instance of :class:`SystemTimeSource`, but you
+#: can point it to a :class:`FastForwardTimeSource` instead. The pyziggy unit tests use
+#: this technique to execute tests quickly even if they contain timers and waiting.
+#:
+#: User code should generally not need to access this object, but it may be handy for
+#: unit tests that use :class:`MessageLoopTimer`.
 time_source: TimeSource = SystemTimeSource()
 
 
 class MessageLoopTimer:
     """
-    AmazeTimer objects should only be created, started and stopped on the
+    Simple timer class that repeatedly calls the provided function on the message thread.
+
+    :class:`MessageLoopTimer` objects should only be created, started and stopped on the
     message thread.
+
+    It's not super accurate, and since all timer's callbacks are called on the same
+    thread, a long-running callback can delay calling the others.
     """
 
     _running_timers: list[MessageLoopTimer] = []
@@ -220,10 +316,16 @@ class MessageLoopTimer:
         self._in_running_timers = False
         self._callback = callback
 
-    def start(self, duration: float):
+    def start(self, duration_sec: float) -> None:
+        """
+        Starts the timer.
+
+        :param duration_sec: The period between two callbacks. The first callback also
+                             occurs after this time after this duration elapses.
+        """
         self._should_stop = False
-        self._duration = duration
-        self._wait_time = duration
+        self._duration = duration_sec
+        self._wait_time = duration_sec
 
         MessageLoopTimer._advance_timers()
 
@@ -234,19 +336,15 @@ class MessageLoopTimer:
         MessageLoopTimer._reshuffle_timers()
         MessageLoopTimer._update_timer_thread()
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Call this function if you want to stop receiving callbacks.
+        """
         self._should_stop = True
 
     def _timer_callback(self):
         if not self._should_stop:
             self._callback(self)
-
-    @classmethod
-    def get_time_source(cls) -> TimeSource:
-        """
-        Returns the current time source used by the message loop timers.
-        """
-        return time_source
 
     @classmethod
     def _reshuffle_timers(cls):

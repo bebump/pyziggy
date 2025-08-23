@@ -65,8 +65,9 @@ class ParameterBase(Broadcaster):
     """
     A base class for all other parameter types.
 
-    This type inherits from Broadcaster, so you can call ``add_listener`` on all
-    parameter objects to be notified when their value changes.
+    This type inherits from :class:`pyziggy.broadcasters.Broadcaster`, so you can call
+    :meth:`pyziggy.broadcasters.Broadcaster.add_listener` on all parameter objects to be
+    notified when their value changes.
     """
 
     def __init__(self, property: str):
@@ -131,7 +132,7 @@ class NumericParameter(ParameterBase):
 
     The minimum and maximum values are determined by the pyziggy generator based on the
     parameter information shared by Z2M. Sometimes Z2M fails to report these values,
-    specifically I've seen them missing for the constituents of CompositeParameters.
+    specifically I've seen them missing for members of CompositeParameters.
     In this case the generator will choose a very large default range to avoid
     accidentally clamping the values exchanged with Z2M.
     """
@@ -196,10 +197,10 @@ class NumericParameter(ParameterBase):
 
         **Discussion**:
 
-            Calling this function with True is useful for parameters where transient values
-            are significant. For example, it's possible that a single message transaction
-            received from the MQTT broker contains multiple consecutive changes to a
-            parameter's value, and we want to observe and serve them all. An *action*
+            Calling this function with True is useful for parameters where transient
+            values are significant. For example, it's possible that we receive multiple
+            consecutive changes to a parameter's value in a single sub-second message
+            window, but we still need to to observe and serve them all. An *action*
             parameter of a rotary dial, or brightness increasing switch could be such a
             parameter.
 
@@ -261,7 +262,8 @@ class NumericParameter(ParameterBase):
         """
         :return: The parameter's value mapped to the range [0.0, 1.0].
                  The range's start and end represent the values returned by
-                 ``get_minimum()`` and ``get_maximum()`` and the mapping is linear.
+                 :func:`get_minimum()` and :func:`get_maximum()` and the mapping is
+                 linear.
         """
         return (self.get() - self._min_value) / (self._max_value - self._min_value)
 
@@ -335,14 +337,14 @@ class SettableNumericParameter(NumericParameter):
         we can't assume that the parameter's value correctly reflects the physical
         device's state.
 
-        This will override the default logic where the ``set`` and ``set_normalized``
-        functions only emit MQTT messages if the parameter's stored state is different
-        from the new one.
+        This will override the default logic where the :func:`set` and
+        :func:`set_normalized` functions only emit MQTT messages if the parameter's
+        stored state is different from the new one.
 
         This way you can practically force emitting an MQTT message that requires the
-        device parameter to be set to the required value. The first ``set`` or
-        ``set_normalized`` call clears the stale state, returning the parameter logic
-        to follow the default behavior.
+        device parameter to be set to the required value. The first :func:`set` or
+        :func:`set_normalized` call clears the stale state, returning the parameter
+        logic to follow the default behavior.
         """
         self._stale = True
 
@@ -360,14 +362,15 @@ class SettableNumericParameter(NumericParameter):
         **MQTT communication behavior**:
 
             The pyziggy framework keeps track of parameter values sent and received and has
-            logic to avoid unnecessarily sending MQTT messages. Calling ``set`` with the same
-            value that the parameter already has will not emit any MQTT messages, unless
-            ``mark_as_stale()`` has been called on the parameter prior to ``set``.
+            logic to avoid unnecessarily sending MQTT messages. Calling :func:`set` with
+            the same value that the parameter already has will not emit any MQTT messages,
+            unless :func:`mark_as_stale` has been called on the parameter prior to
+            :func:`set`.
 
             The logic that determines whether a parameter value changed runs
             asynchronously, and this is responsible for sending the MQTT messages as
             well. This means that it can only happen after the entire call stack has
-            been unwound on which ``set`` has been called. A practical consequence
+            been unwound on which :func:`set` has been called. A practical consequence
             of this, is that the callback in the following example can emit at most a
             single MQTT message. It will do so if the final value of the parameter is
             different from what Z2M thinks it is.
@@ -414,8 +417,8 @@ class SettableNumericParameter(NumericParameter):
 
         The passed in value will be clamped to the permitted range.
 
-        This function internally calls ``set``, consequently its *MQTT communication
-        behavior* is the same.
+        This function internally calls :func:`set`, consequently its *MQTT
+        communication behavior* is the same.
         """
         self.set(
             float(round(value * (self._max_value - self._min_value) + self._min_value))
@@ -662,14 +665,16 @@ class CompositeParameter(ParameterBase):
         we can't assume that the parameter's value correctly reflects the physical
         device's state.
 
-        This will override the default logic where the ``set`` and ``set_normalized``
-        functions only emit MQTT messages if the parameter's stored state is different
-        from the new one.
+        This will override the default logic where the
+        :meth:`SettableNumericParameter.set` and
+        :meth:`SettableNumericParameter.set_normalized` functions only emit MQTT
+        messages if the parameter's stored state is different from the new one.
 
         This way you can practically force emitting an MQTT message that requires the
-        device parameter to be set to the required value. The first ``set`` or
-        ``set_normalized`` call clears the stale state, returning the parameter logic
-        to follow the default behavior.
+        device parameter to be set to the required value. The first
+        ::meth:`SettableNumericParameter.set` or
+        :meth:`SettableNumericParameter.set_normalized` call clears the stale state,
+        returning the parameter logic to follow the default behavior.
         """
         for param in self._get_subparameters():
             if isinstance(param, SettableNumericParameter):

@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 import os
 
-from pyziggy.run import run_mypy
+from pyziggy.run import _run_mypy
 
 
 # Interprets the provided path constituents relative to the location of this
@@ -20,4 +20,4 @@ def rel_to_py(*paths) -> Path:
 
 class TestFrameworkMypy(unittest.TestCase):
     def test_framework_mypy(self):
-        self.assertTrue(run_mypy(rel_to_py("..", "src", "pyziggy")))
+        self.assertTrue(_run_mypy(rel_to_py("..", "src", "pyziggy")))
