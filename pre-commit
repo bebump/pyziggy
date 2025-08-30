@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -e
+SELF_DIR="$(cd "$(dirname "$0")"; pwd)"
+
+# Delete the current .venv and reinstall it. This is so that the version number
+# is reflected correctly if it has been changed in pyproject.toml
+VENV_PYTHON="$SELF_DIR/.venv"
+
+if [ -d "$VENV_PYTHON" ]; then
+    rm -rf "$VENV_PYTHON"
+fi
+
+cd "$SELF_DIR"
+
+# Setup the .venv
+"$SELF_DIR/util/pyziggy-setup" --use-cwd setup
+
+# Run tests
+"$SELF_DIR/.venv/bin/python" -m unittest discover -s "$SELF_DIR/tests"
+
+# Reformat everything with black
+"$SELF_DIR/.venv/bin/python" -m black "$SELF_DIR/src" "$SELF_DIR/tests"
+
+# Generate docs
+source "$SELF_DIR/.venv/bin/activate"
+cd "$SELF_DIR/docs"
+make clean
+make html
