@@ -1,0 +1,2 @@
+- Improve cross-references in documentation. Understand why Sphinx/Furo fails to generate cross-references to avoid hard-coded HTML references.
+- Define potentially ambiguous behavior for ScaleMapper corner cases.
