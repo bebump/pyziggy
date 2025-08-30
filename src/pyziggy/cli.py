@@ -99,9 +99,7 @@ def _wrap_for_terminal(s: list[str]) -> str:
     except:
         pass
 
-    paragraphs = [
-        "\n".join(textwrap.wrap(p, width=width)) for p in s
-    ]
+    paragraphs = ["\n".join(textwrap.wrap(p, width=width)) for p in s]
     return "\n".join(paragraphs)
 
 

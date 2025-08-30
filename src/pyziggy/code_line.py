@@ -39,10 +39,7 @@ class CodeLine:
     def __eq__(self, other):
         if not isinstance(other, CodeLine):
             return False
-        return (
-            self.line == other.line
-            and self.postindent == other.postindent
-        )
+        return self.line == other.line and self.postindent == other.postindent
 
     def __str__(self):
         return self.line

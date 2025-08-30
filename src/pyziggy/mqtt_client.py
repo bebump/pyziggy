@@ -212,9 +212,7 @@ class MqttClient:
     ):
         self._base_topic = base_topic
 
-        self._impl.connect(
-            host, port, keepalive, use_tls, username, password
-        )
+        self._impl.connect(host, port, keepalive, use_tls, username, password)
 
     @final
     def _loop_forever(self):

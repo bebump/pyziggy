@@ -35,6 +35,7 @@ from pyziggy.parameters import (
     _int_to_enum,
 )
 
+
 class LightWithDimming:
     def __init__(self, arg0, arg1):
         self.state = SettableAndQueryableToggleParameter("state")
@@ -62,14 +63,16 @@ class CompositeParameterVariant0(CompositeParameter):
 
 
 class LightWithColor(LightWithColorTemp):
-    def __init__(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11):
+    def __init__(
+        self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11
+    ):
         LightWithColorTemp.__init__(self, arg0, arg1, arg2, arg3)
         self.color_xy = CompositeParameterVariant("color", arg4, arg5, arg6, arg7)
         self.color_hs = CompositeParameterVariant0("color", arg8, arg9, arg10, arg11)
 
 
 __all__ = [
-    'LightWithColor',
-    'LightWithColorTemp',
-    'LightWithDimming',
-    ]
+    "LightWithColor",
+    "LightWithColorTemp",
+    "LightWithDimming",
+]

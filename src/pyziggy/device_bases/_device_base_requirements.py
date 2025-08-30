@@ -45,7 +45,9 @@ class BaseClassRequirement:
                 if result is None:
                     return None
 
-                matching_parameters += [r for r in result if r not in matching_parameters]
+                matching_parameters += [
+                    r for r in result if r not in matching_parameters
+                ]
             elif isinstance(req, ParameterBaseDefinition):
                 match_found = False
 

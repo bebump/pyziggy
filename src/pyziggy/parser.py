@@ -117,8 +117,16 @@ class NumericParameterDefinition(ParameterBaseDefinition):
                 feature["property"],
                 feature["name"],
                 feature["access"],
-                feature["value_min"] if "value_min" in feature else NumericParameterDefinition.MISSING_VALUE_MIN,
-                feature["value_max"] if "value_max" in feature else NumericParameterDefinition.MISSING_VALUE_MAX,
+                (
+                    feature["value_min"]
+                    if "value_min" in feature
+                    else NumericParameterDefinition.MISSING_VALUE_MIN
+                ),
+                (
+                    feature["value_max"]
+                    if "value_max" in feature
+                    else NumericParameterDefinition.MISSING_VALUE_MAX
+                ),
             )
         except:
             return None

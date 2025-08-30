@@ -39,7 +39,10 @@ class RecordingMqttClientImpl(PahoMqttClientImpl):
         super().publish(topic, payload)
         self.events.append(
             MessageEvent(
-                MessageEventKind.SEND, ml.time_source.time() - self.start, topic, payload
+                MessageEventKind.SEND,
+                ml.time_source.time() - self.start,
+                topic,
+                payload,
             )
         )
 
@@ -50,7 +53,10 @@ class RecordingMqttClientImpl(PahoMqttClientImpl):
         payload = json.loads(msg.payload)
         self.events.append(
             MessageEvent(
-                MessageEventKind.RECV, ml.time_source.time() - self.start, topic, payload
+                MessageEventKind.RECV,
+                ml.time_source.time() - self.start,
+                topic,
+                payload,
             )
         )
 
@@ -76,8 +82,8 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         self.playback_events = MessageEventList(recording)
 
         if (
-                self.playback_events.events
-                and self.playback_events.events[-1].kind != MessageEventKind.RECV
+            self.playback_events.events
+            and self.playback_events.events[-1].kind != MessageEventKind.RECV
         ):
             last_event = self.playback_events.events[-1]
             recv_event = MessageEvent(
@@ -106,13 +112,13 @@ class PlaybackMqttClientImpl(MqttClientImpl):
 
     @override
     def connect(
-            self,
-            host: str,
-            port: int,
-            keepalive: int,
-            use_tls: bool = False,
-            username: str | None = None,
-            password: str | None = None,
+        self,
+        host: str,
+        port: int,
+        keepalive: int,
+        use_tls: bool = False,
+        username: str | None = None,
+        password: str | None = None,
     ):
         pass
 
@@ -141,7 +147,7 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         self.prepare_next_callback()
 
     def match_expected_messages(
-            self, messages: list[MessageEvent], messages_begin: int
+        self, messages: list[MessageEvent], messages_begin: int
     ):
         begin = (
             max(self.matching_recorded_event_indices)
@@ -270,7 +276,7 @@ class PlaybackMqttClientImpl(MqttClientImpl):
                 )
 
                 if not self.match_expected_messages(
-                        expected_messages, self.next_recv_index - len(expected_messages)
+                    expected_messages, self.next_recv_index - len(expected_messages)
                 ):
                     self.cumulative_waits += 0.1
 

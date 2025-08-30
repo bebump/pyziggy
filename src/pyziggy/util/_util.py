@@ -258,6 +258,7 @@ class ScaleMapper:
     :param barrier_activation_callback: A callback that can be used to e.g. emit a sound
                                         when a barrier is hit.
     """
+
     class _MockScalable(Scalable):
         def __init__(self):
             self.value = 0.0

@@ -58,8 +58,10 @@ class TestMessageLoopTimer(unittest.TestCase):
 
         self.assertTrue(num_a_callbacks == 4 and num_b_callbacks == 3)
         should_have_elapsed = max(0.2 * 5, 0.4 * 3)
-        self.assertTrue(should_have_elapsed - 0.5 < stop - start < should_have_elapsed + 0.5,
-                        f"Elapsed time was {stop - start}, expected around {should_have_elapsed}")
+        self.assertTrue(
+            should_have_elapsed - 0.5 < stop - start < should_have_elapsed + 0.5,
+            f"Elapsed time was {stop - start}, expected around {should_have_elapsed}",
+        )
 
     def test_timer_can_be_fast_forwarded(self):
         ml.time_source = ml.FastForwardTimeSource()

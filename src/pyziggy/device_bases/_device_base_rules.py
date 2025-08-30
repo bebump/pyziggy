@@ -21,7 +21,11 @@ from typing import List
 
 from ._device_base_requirements import BaseClassRequirement
 from ..parser import ParameterAccessType
-from ..parser import ToggleParameterDefinition, NumericParameterDefinition, CompositeParameterDefinition
+from ..parser import (
+    ToggleParameterDefinition,
+    NumericParameterDefinition,
+    CompositeParameterDefinition,
+)
 
 dimmable_light = BaseClassRequirement(
     "LightWithDimming",

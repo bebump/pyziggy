@@ -71,8 +71,8 @@ class EnumClassGenerator:
             code.append(CodeLine(f"from enum import Enum\n\n"))
 
         for (
-                enum_values_storage,
-                enum_name,
+            enum_values_storage,
+            enum_name,
         ) in self.enum_name_for_enum_values_storage.items():
             code.append(CodeLine(f"class {enum_name}(Enum):", CodeIndent.INDENT))
 
@@ -205,11 +205,11 @@ class ClassGenerator:
         self._classes: Dict[str, List[CodeLine]] = {}
 
     def generate_class(
-            self,
-            name_prefix: str,
-            init_code: List[CodeLine],
-            base_class_names: List[str] = [],
-            avoid_duplicate_class_impls: bool = False,
+        self,
+        name_prefix: str,
+        init_code: List[CodeLine],
+        base_class_names: List[str] = [],
+        avoid_duplicate_class_impls: bool = False,
     ):
         """
 
@@ -250,8 +250,8 @@ class ClassGenerator:
             inherits = f"({lines[0].line})" if lines[0].line else ""
 
             lines = [CodeLine(f"class {name}{inherits}:", CodeIndent.INDENT)] + lines[
-                                                                                1:
-                                                                                ]
+                1:
+            ]
 
             if lines[-1] == CodeLine("", CodeIndent.UNINDENT):
                 lines[-1] = CodeLine("", CodeIndent.UNINDENT2)
@@ -290,10 +290,10 @@ class ClassSkeletonArg:
 
 class ClassSkeletonEntry:
     def __init__(
-            self,
-            member_name: str | None,
-            initializer_expr: str,
-            arguments: List[ClassSkeletonArg],
+        self,
+        member_name: str | None,
+        initializer_expr: str,
+        arguments: List[ClassSkeletonArg],
     ):
         self.member_name: str | None = member_name
         self.initializer_expr: str = initializer_expr
@@ -362,7 +362,7 @@ class ClassSkeleton:
 
 
 def get_initialization_arguments(
-        cg: ClassGenerator, parameter: ParameterBaseDefinition
+    cg: ClassGenerator, parameter: ParameterBaseDefinition
 ):
     def str_or_none(value_opt: Any) -> str | None:
         if value_opt is None:
@@ -403,7 +403,7 @@ def quoted(x):
 
 
 def generate_class_skeleton(
-        cg: ClassGenerator, parameters: List[ParameterBaseDefinition]
+    cg: ClassGenerator, parameters: List[ParameterBaseDefinition]
 ):
     skeleton = ClassSkeleton(cg)
 
