@@ -242,31 +242,19 @@ This feature is currently supported on MacOS only.
 This recipe assumes 
 * the <a href="index.html#a-minimal-automation-project">minimal automation project</a>, 
 * with the addition, that the `pyziggy-setup` script has also been placed in the project directory,
+* and the `remote.json` file also added to the project directory (see below),
 * and a `requirements.txt` also added to your project directory, containing all required dependencies, including `pyziggy`,
 * a remote machine with the project machine's SSH key added to its `authorized_keys`,
 * rsync 3.2.0 or greater installed on the project machine, and
 * pyenv installed on the remote machine.
 
-So this is what your project directory should look like
+To download the default `remote.json`, issue
 
 ```
-my_automation/
-├─ pyziggy_autogenerate/
-│  └─ available_devices.py
-├─ automation.py
-├─ config.toml
-├─ pyziggy-setup
-└─ requirements.txt
-
+curl -fsSL https://raw.githubusercontent.com/bebump/pyziggy/refs/heads/main/util/remote.json -o remote.json
 ```
 
-Run
-
-```
-./pyziggy-setup sync-remote start automation.py
-```
-
-The command will create a default `remote.json` file in the project directory, instruct you to edit it, and exit. Here's the full contents of `remote.json`.
+and then edit it, so that it points to your remote machine. Alternatively, here's the full contents of the default `remote.json`
 
 ```
 {
@@ -278,7 +266,21 @@ The command will create a default `remote.json` file in the project directory, i
 
 The `ssh_remote_dir` is the directory where the project will be uploaded. The `pyziggy-setup` script will automatically create this directory if it doesn't exist.
 
-After editing `remote.json`, issue again
+At this point this is what your project directory should look like
+
+```
+my_automation/
+├─ pyziggy_autogenerate/
+│  └─ available_devices.py
+├─ automation.py
+├─ config.toml
+├─ pyziggy-setup
+├─ remote.json
+└─ requirements.txt
+
+```
+
+You can now issue
 
 ```
 ./pyziggy-setup sync-remote start automation.py
