@@ -765,6 +765,11 @@ from pyziggy.parameters import (
     with open(rel_to_py("device_bases", "__init__.py"), "w") as f:
         f.write(code)
 
+    import subprocess
+    import sys
+
+    subprocess.run([sys.executable, "-m", "black", rel_to_py("device_bases")])
+
 
 class Z2MDevicesParser(MqttSubscriber):
     def __init__(self, output: Path):
