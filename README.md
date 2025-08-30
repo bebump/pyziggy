@@ -40,6 +40,10 @@ and follow the instructions.
 
 ## A minimal automation project
 
+***Side note:** I like to set up a virtual environment in the `.venv` subdirectory of my project directory. I do this with the <a href="cookbook.html#working-with-the-pyziggy-setup-script">pyziggy-setup script</a>.*
+
+---
+
 The rest of the documentation will assume, that you set up an automation project by issuing the following commands.
 
 ```
@@ -48,8 +52,10 @@ cd my_automation
 pyziggy run automation.py
 ```
 
-```{tip}
-I also like to create a virtual environment in `my_automation/.venv` and install pyziggy there. I use the `pyziggy-setup` script in the way explained in the *Set up a project directory* section in the Cookbook.
+Pyziggy will create a default `config.toml` file in the directory, instruct you to edit it and exit. After specifying your MQTT connection details, you need to issue the command again:
+
+```
+pyziggy run automation.py
 ```
 
 This would result in the following directory contents.
@@ -58,8 +64,8 @@ This would result in the following directory contents.
 my_automation/
 ├─ pyziggy_autogenerate/
 │  └─ available_devices.py
-├─ config.toml
-└─ automation.py
+├─ automation.py
+└─ config.toml
 ```
 
 After the first execution of `pyziggy run automation.py` you were instructed to edit the `config.toml` file so that it contains accurate information about connecting to the MQTT broker.
@@ -166,31 +172,4 @@ and stop and uninstall it by
 
 ```
 launchctl unload net.bebump.pyziggy.plist && rm ~/Library/LaunchAgents/net.bebump.pyziggy.plist
-```
-
-## A note on Python best practices
-
-I recommend that you create a Python virtual environment in the `.venv` subdirectory of your automation scripts directory. This way when you open the directory in PyCharm, it will pick up your environment and your pyziggy installation automatically.
-
-If you have pyenv installed, you may choose to use the `pyziggy-setup` script to set up an empty directory.
-
-```{warning}
-Although I'm using the `pyziggy-setup` script daily for my own purposes, it should be treated as experimental. **The script makes changes to the directory it's in. Not the current working directory.**
-```
-
-```
-mkdir my_automation
-cd my_automation
-curl -fsSL https://raw.githubusercontent.com/bebump/pyziggy/refs/heads/main/util/pyziggy-setup -o pyziggy-setup
-chmod u+x pyziggy-setup
-./pyziggy-setup setup
-```
-
-This creates a virtual environment in `my_automation/.venv` with an appropriate Python version installed by pyenv, and installs the current version of pyziggy into it. If there are any missing dependencies on your system, the script will stop and explain it.
-
-If you're still in the `my_automation` directory, you can issue the next commands and then follow the instructions.
-
-```
-source .venv/bin/activate
-pyziggy run automation.py
 ```

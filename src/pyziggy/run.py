@@ -337,6 +337,8 @@ def run_command(
     pre_run_check_only: bool = False,
 ) -> None:
     """
+    This is the function that's called by the ``pyziggy run`` command-line program after
+    the ``AvailableDevices`` type has been regenerated.
 
     :param devices_client_param: Either the DevicesClient object i.e. AvailableDevices, or the
                                  path to the module file that contains this object e.g.

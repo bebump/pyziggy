@@ -142,6 +142,15 @@ class MessageLoop(metaclass=_Singleton):
             self._loop_should_quit = True
             self._condition.notify()
 
+    def stop_after_a_second(self) -> None:
+        """
+        One second after the call, exits the infinite message loop and allows clean
+        termination of the program. This allows communicating MQTT messages that
+        originate from the same call stack as this call.
+        """
+        self._stop_timer = MessageLoopTimer(lambda timer: message_loop.stop())
+        self._stop_timer.start(1)
+
     def post_message(self, message: Callable[[], None]) -> None:
         """
         Queues the callback for execution on the message thread.

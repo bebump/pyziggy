@@ -6,6 +6,6 @@
    :hidden:
 
    The basics <self>
-   cookbook
+   cookbook_rst
    cli
    api
