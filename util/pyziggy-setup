@@ -1,6 +1,12 @@
 #!/bin/bash
 
 SELF_DIR="$(cd "$(dirname "$0")"; pwd)"
+
+if [ "$1" = "--use-cwd" ]; then
+    SELF_DIR="$(pwd)"
+    shift
+fi
+
 BASENAME=$(basename "$0")
 SELF_PATH="$SELF_DIR/$BASENAME"
 MIN_PYTHON_VERSION="3.12"
@@ -450,7 +456,7 @@ case "$1" in
         echo "  stop                 - Stops the pyziggy service if it is running"
         echo ""
         echo "Options:"
-        echo "  --pwd                - Instead of the directory that pyziggy-setup is located in, set up the"
+        echo "  --use-cwd            - Instead of the directory that pyziggy-setup is located in, set up the"
         echo "                         CWD for development"
         exit 1
         ;;
