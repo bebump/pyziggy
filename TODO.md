@@ -1,2 +1,4 @@
 - Improve cross-references in documentation. Understand why Sphinx/Furo fails to generate cross-references to avoid hard-coded HTML references.
 - Define potentially ambiguous behavior for ScaleMapper corner cases.
+- Consider changing `pyziggy-setup` to operate on the current working directory. This requires a mechanism for calling `pyziggy-setup` functions on the remote, even if `pyziggy-setup` isn't present as a file on the remote. 
+- Document the `secrets` feature of `pyziggy-setup`.
