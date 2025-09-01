@@ -435,7 +435,7 @@ class TimedRunner:
         """
         Sets whether to stop the message loop when done.
 
-        The default value for the underlying setting is True.
+        The default setting is True.
         """
         self.stop_message_loop_when_done = should_stop
 

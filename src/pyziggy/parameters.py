@@ -165,7 +165,7 @@ class NumericParameter(ParameterBase):
         Sets whether the parameter's listeners should be called synchronously when the
         value changes.
 
-        The default value for the underlying setting is False.
+        The default setting is False.
 
         The pyziggy framework has a workarounds module that tries to ensure that this
         value is set to True whenever it makes sense, so you generally shouldn't need to
@@ -216,7 +216,7 @@ class NumericParameter(ParameterBase):
         Call this function with a True value to always call listeners whenever an
         update is received from Z2M for the parameter.
 
-        The default value for the underlying setting is False.
+        The default setting is False.
 
         By default, listeners are only called if the update received from Z2M changes
         the value compared to the last time when the listeners were called.

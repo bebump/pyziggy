@@ -67,7 +67,7 @@ class Workaround:
         """
         Sets whether a workaround gets applied to your DevicesClient object.
 
-        The default value for the underlying setting is True.
+        The default setting is True.
         """
         self._enabled = enabled
 

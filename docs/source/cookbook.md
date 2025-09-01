@@ -66,7 +66,7 @@ def turn_on_and_exit():
 devices.on_connect.add_listener(turn_on_and_exit)    
 ```
 
-Since this script unconditionally changes parameters, and doesn't care about any state in the system, it is a perfect candidate for using the `--no_startup_query` argument. For more about this, see the <a href="cli.html#named-arguments">Command-line-reference</a>. 
+Since this script unconditionally changes parameters, and doesn't care about any state in the system, it is a perfect candidate for using the `--no_startup_query` argument. For more about this, see the <a href="cli.html#named-arguments">Command-line reference</a>. 
 
 Note the call to {func}`pyziggy.message_loop.MessageLoop.stop_after_a_second` as opposed to calling {func}`pyziggy.message_loop.MessageLoop.stop`. This is necessary, because `stop()` would immediately exit the message loop, and the pyziggy wouldn't have a chance to send the MQTT messages for the light.
 
@@ -115,7 +115,7 @@ class MyTasks(TimedRunner):
 _ = MyTasks(devices)
 ```
 
-Since this script unconditionally changes parameters, and doesn't care about any state in the system, it is a perfect candidate for using the `--no_startup_query` argument. For more about this, see the <a href="cli.html#named-arguments">Command-line-reference</a>.
+Since this script unconditionally changes parameters, and doesn't care about any state in the system, it is a perfect candidate for using the `--no_startup_query` argument. For more about this, see the <a href="cli.html#named-arguments">Command-line reference</a>.
 
 For more on the utility class, see
 * {class}`pyziggy.util.TimedRunner`
