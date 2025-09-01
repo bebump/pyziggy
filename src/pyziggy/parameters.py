@@ -576,7 +576,7 @@ class EnumParameter(NumericParameter):
 
         def light_switch_handler():
             action_enum = devices.light_switch.action.enum_type
-            action = devices.ikea_remote.action.get_enum_value()
+            action = devices.light_switch.action.get_enum_value()
 
             if action == action_enum.brightness_move_up:
                 kitchen_light.brightness.add_normalized(0.075)
