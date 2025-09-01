@@ -387,7 +387,7 @@ def run_command(
 
     if no_startup_query:
         print(
-            "Using --skip_initial_query. Initial parameter values will not reflect the devices' true states."
+            "Using --no_startup_query. Initial parameter values will not reflect the devices' true states."
         )
         devices_client._set_skip_initial_query(True)
 
