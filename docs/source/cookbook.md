@@ -10,7 +10,7 @@ This recipe also assumes, that pyziggy has been installed in the virtual environ
 
 Open `my_automation` in PyCharm. It should detect the `.venv` subdirectory and automatically configure your environment.
 
-Open the `my_automation.py` file from the project pane, right click in its editor window, and select *"Modify Run Configuration..."*. Provide the following details
+Open the `automation.py` file from the project pane, right click in its editor window, and select *"Modify Run Configuration..."*. Provide the following details
 
 ![Run configuration for automation.py](../images/debug_configuration.png)
 
@@ -68,7 +68,7 @@ devices.on_connect.add_listener(turn_on_and_exit)
 
 Since this script unconditionally changes parameters, and doesn't care about any state in the system, it is a perfect candidate for using the `--no_startup_query` argument. For more about this, see the <a href="cli.html#named-arguments">Command-line reference</a>. 
 
-Note the call to {func}`pyziggy.message_loop.MessageLoop.stop_after_a_second` as opposed to calling {func}`pyziggy.message_loop.MessageLoop.stop`. This is necessary, because `stop()` would immediately exit the message loop, and the pyziggy wouldn't have a chance to send the MQTT messages for the light.
+Note the call to {func}`pyziggy.message_loop.MessageLoop.stop_after_a_second` as opposed to calling {func}`pyziggy.message_loop.MessageLoop.stop`. This is necessary, because `stop()` would immediately exit the message loop, and pyziggy wouldn't have a chance to send the MQTT messages for the light.
 
 ***Side note:*** For more on this behaviour, see 
 * {func}`pyziggy.parameters.SettableNumericParameter.set`.
