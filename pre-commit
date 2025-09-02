@@ -24,6 +24,20 @@ cd "$SELF_DIR"
 
 # Generate docs
 source "$SELF_DIR/.venv/bin/activate"
-cd "$SELF_DIR/docs"
+pushd "$SELF_DIR/docs"
 make clean
 make html
+popd
+
+
+# Look for an outdated version in pyziggy-setup
+VERSION="$("$SELF_DIR/.venv/bin/python" -c 'import importlib.metadata; print(importlib.metadata.version("pyziggy"))')"
+VERSION_MISMATCH=$(grep 'pyziggy==' util/pyziggy-setup | grep -v "pyziggy==$VERSION" | cat)
+
+if [ -n "$VERSION_MISMATCH" ]; then
+    echo "Mismatching version string found in util/pyziggy-setup"
+    echo "$VERSION_MISMATCH"
+    exit 1
+fi
+
+echo "GOOD TO GO!"
