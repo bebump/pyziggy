@@ -787,7 +787,8 @@ class Z2MDevicesParser(MqttSubscriber):
     def timer_callback(self, timer: MessageLoopTimer):
         timer.stop()
         print(
-            f'Failed to acquire "bridge/devices" message in time. Maybe restart zigbee2mqtt?'
+            f'Failed to acquire "bridge/devices" message in time. '
+            f"This can happen if MQTT was started after Zigbee2MQTT. Maybe restart Zigbee2MQTT?"
         )
         exit(1)
 

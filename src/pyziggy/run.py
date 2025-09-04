@@ -80,7 +80,7 @@ class PyziggyConfig:
                         "port": self.port,
                         "keepalive": self.keepalive,
                         "base_topic": self.base_topic,
-                        "username": self.username,
+                        "user": self.username,
                         "password": self.password,
                         "use_tls": self.use_tls,
                     },
@@ -115,8 +115,8 @@ class PyziggyConfig:
                 config["mqtt_server"]["keepalive"],
                 config["mqtt_server"]["base_topic"],
                 (
-                    config["mqtt_server"]["username"]
-                    if "username" in config["mqtt_server"]
+                    config["mqtt_server"]["user"]
+                    if "user" in config["mqtt_server"]
                     else None
                 ),
                 (
@@ -160,7 +160,7 @@ use_tls = false
 # uncommenting and setting the below values. In this case you probably need to
 # enable the use_tls setting as well.
 #
-# username = "your_username"
+# user = "your_username"
 # password = "your_password"
 
 [flask]

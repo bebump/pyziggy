@@ -132,7 +132,16 @@ class PahoMqttClientImpl(MqttClientImpl):
         if username is not None and password is not None:
             self._mqttc.username_pw_set(username, password)
 
-        self._mqttc.connect(host, port, keepalive)
+        try:
+            self._mqttc.connect(host, port, keepalive)
+        except TimeoutError as e:
+            logger.error(f"Failed to connect to MQTT broker with timeout error: {e}")
+            exit(1)
+        except ConnectionRefusedError as e:
+            logger.error(
+                f"Failed to connect to MQTT broker with connection refused error: {e}"
+            )
+            exit(1)
 
     @override
     def loop_forever(self):
