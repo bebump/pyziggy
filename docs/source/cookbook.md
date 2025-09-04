@@ -183,7 +183,7 @@ With a POST endpoint exposed, like above, it's very easy to trigger pyziggy auto
 
 Until now, all examples used the `pyziggy run automation.py` command. This recipe shows how to create a single `.py` script that you can execute directly.
 
-The downside of this approach is, that it doesn't connect to MQTT prior to launching your automation and doesn't regenerate the `AvailableDevices` type, so it can contain out-of-date information. Because of this, I don't recommend this, but it can be done.
+The downside of this approach is, that it doesn't connect to MQTT prior to launching your automation and doesn't regenerate the `AvailableDevices` type, so it can contain out-of-date information. For this reason, I don't recommend this, but it can be done.
 
 The full contents of `automation.py` for such a task would be as follows.
 

@@ -4,11 +4,11 @@
 
 ---
 
-Pyziggy is a code generator and runtime framework for creating [Zigbee2MQTT](https://www.zigbee2mqtt.io) automation projects without any boilerplate. Boilerplate is things, like remembering device and parameter names, and correctly citing them as strings. This is information that Zigbee2MQTT already knows, and it can be encoded in class hierarchies and the type system.
+Pyziggy is a code generator and runtime framework for creating [Zigbee2MQTT](https://www.zigbee2mqtt.io) automation projects without any boilerplate, such as remembering device and parameter names, and having to correctly cite them as strings. This information is already available through Zigbee2MQTT, so it can be encoded in class hierarchies and the type system.
 
-Pyziggy automatically generates a reasonably well-typed package in your project directory, with information about devices and parameters that Zigbee2MQTT knows about. When launching your automation it uses mypy to check the correctness of your project.
-
-This way, instead of composing and parsing MQTT messages, user scripts can mutate Python objects to interact with the Zigbee network. Using an IDE you should have full code completion to take the guesswork out of interacting with your smart devices.
+Pyziggy automatically generates a typed package in your project directory containing information about devices and parameters that Zigbee2MQTT knows about. Your automation project can import this package, and use simple setters and getters on Python objects to effect changes in your Zigbee network. Upon restart, the device package is regenerated and the correctness of your project is checked with mypy.
+ 
+An IDE should give you full code completion, and take the guesswork out of interacting with your smart devices.
 
 ```
 # Your IDE should offer valid choices after each press of .
@@ -82,7 +82,7 @@ The way to get the most out of pyziggy is to use an IDE with code completion fea
 
 Open your `automation.py` file and start editing it. Typing `devices.` should show you suggestions for all the devices that Zigbee2MQTT knows about. Going further and typing e.g. `devices.color_bulb.` will show suggestions for all the parameters of `color_bulb` that can be queried, set or both. Not every parameter is settable, in which case it will not have setter functions.
 
-All public members of `devices` are your actual devices that Zigbee2MQTT knows about and pyziggy could successfully parse. And all public members of each device are parameters, such as `brightness` or `color_temp` in case of a smart light bulb.
+All public members of `devices` are actual devices that Zigbee2MQTT knows about and pyziggy could successfully parse. The public members of each device are parameters, such as `brightness` or `color_temp` in case of a smart light bulb.
 
 Most home automation tasks can be implemented by
 - calling setters and getters on the parameters in {mod}`pyziggy.parameters`
