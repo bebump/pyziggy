@@ -92,13 +92,14 @@ class MessageLoop(metaclass=_Singleton):
         self._condition = threading.Condition()
         self._loop_should_quit: bool = False
         self._messages = []
+        self._return_code: int = 0
 
     def _process_messages(self):
         while self._messages:
             m = self._messages.pop(0)
             m()
 
-    def run(self) -> None:
+    def run(self) -> int:
         """
         Enters an infinite loop queuing and dispatching messages. To exit
         the loop call :meth:`stop`.
@@ -119,7 +120,7 @@ class MessageLoop(metaclass=_Singleton):
         while True:
             with self._condition:
                 if self._loop_should_quit:
-                    return
+                    return self._return_code
 
                 if not self._messages:
                     self._condition.wait()
@@ -131,24 +132,25 @@ class MessageLoop(metaclass=_Singleton):
                 m = messages.pop(0)
                 m()
 
-    def stop(self) -> None:
+    def stop(self, return_code: int = 0) -> None:
         """
         Exits the infinite message loop and allows clean termination of the program.
         """
 
+        self._return_code = return_code
         self.on_stop._call_listeners()
 
         with self._condition:
             self._loop_should_quit = True
             self._condition.notify()
 
-    def stop_after_a_second(self) -> None:
+    def stop_after_a_second(self, return_code: int = 0) -> None:
         """
         One second after the call, exits the infinite message loop and allows clean
         termination of the program. This allows communicating MQTT messages that
         originate from the same call stack as this call.
         """
-        self._stop_timer = MessageLoopTimer(lambda timer: message_loop.stop())
+        self._stop_timer = MessageLoopTimer(lambda timer: message_loop.stop(return_code))
         self._stop_timer.start(1)
 
     def post_message(self, message: Callable[[], None]) -> None:
