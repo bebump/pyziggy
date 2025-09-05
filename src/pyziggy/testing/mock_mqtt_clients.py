@@ -310,8 +310,10 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         return True
 
     @override
-    def loop_forever(self):
+    def loop_forever(self) -> int:
         self.on_connect(100)
 
         if self.prepare_next_callback():
             message_loop.run()
+
+        return 0

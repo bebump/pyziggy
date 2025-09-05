@@ -103,7 +103,7 @@ class MqttClientImpl:
         pass
 
     @abstractmethod
-    def loop_forever(self):
+    def loop_forever(self) -> int:
         pass
 
 
@@ -144,10 +144,11 @@ class PahoMqttClientImpl(MqttClientImpl):
             exit(1)
 
     @override
-    def loop_forever(self):
+    def loop_forever(self) -> int:
         self._mqttc.loop_start()
-        message_loop.run()
+        return_code = message_loop.run()
         self._mqttc.disconnect()
+        return return_code
 
     @override
     def publish(self, topic: str, payload: Dict[str, Any]):
