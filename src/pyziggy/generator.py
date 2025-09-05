@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Dict, Any, override
+from typing import List, Dict, Any, override, Callable
 
 from .code_line import CodeLine, CodeIndent
 from .device_bases._device_base_requirements import (
@@ -772,9 +772,10 @@ from pyziggy.parameters import (
 
 
 class Z2MDevicesParser(MqttSubscriber):
-    def __init__(self, output: Path):
+    def __init__(self, output: Path, timeout_callback: Callable[[], None] | None):
         super().__init__("bridge/devices")
         self.output: Path = output
+        self.timeout_callback = timeout_callback
         self.timer = MessageLoopTimer(self.timer_callback)
         self.timer.start(5)
 
@@ -786,14 +787,26 @@ class Z2MDevicesParser(MqttSubscriber):
 
     def timer_callback(self, timer: MessageLoopTimer):
         timer.stop()
-        print(
-            f'Failed to acquire "bridge/devices" message in time. '
-            f"This can happen if MQTT was started after Zigbee2MQTT. Maybe restart Zigbee2MQTT?"
-        )
+
+        if self.timeout_callback is not None:
+            self.timeout_callback()
+
         exit(1)
 
 
 class DevicesGenerator(MqttClient):
     def __init__(self, output: Path):
         super().__init__()
-        self.generator = Z2MDevicesParser(output)
+        self.generator = Z2MDevicesParser(output, self._timeout_callback)
+
+    def _timeout_callback(self):
+        if not self._impl.was_on_connect_called():
+            print(
+                f"Failed to set up MQTT connection. MQTT server responds, but"
+                f" on_connect was never called. Maybe misconfigured SSL/TLS settings?"
+            )
+        else:
+            print(
+                f'Failed to acquire "bridge/devices" message in time. This can happen'
+                f" if MQTT was started after Zigbee2MQTT. Maybe restart Zigbee2MQTT?"
+            )
