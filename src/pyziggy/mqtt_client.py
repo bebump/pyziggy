@@ -87,6 +87,10 @@ class MqttClientImpl:
         pass
 
     @abstractmethod
+    def was_on_connect_called(self) -> bool:
+        pass
+
+    @abstractmethod
     def set_on_connect(self, callback):
         pass
 
@@ -114,6 +118,7 @@ class PahoMqttClientImpl(MqttClientImpl):
         self._mqttc.on_message = self._on_message
         self._on_connect_callback = None
         self._on_message_callback = None
+        self._on_connect_was_called = False
 
     @override
     def connect(
@@ -142,6 +147,10 @@ class PahoMqttClientImpl(MqttClientImpl):
                 f"Failed to connect to MQTT broker with connection refused error: {e}"
             )
             exit(1)
+
+    @override
+    def was_on_connect_called(self) -> bool:
+        return self._on_connect_was_called
 
     @override
     def loop_forever(self) -> int:
@@ -178,6 +187,7 @@ class PahoMqttClientImpl(MqttClientImpl):
             )
 
         message_loop.post_message(callback)
+        self._on_connect_was_called = True
 
     def _on_message(self, client, userdata, msg):
         def callback():

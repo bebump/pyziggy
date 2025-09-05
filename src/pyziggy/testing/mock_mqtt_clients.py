@@ -111,6 +111,10 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         return self.recorded_events
 
     @override
+    def was_on_connect_called(self) -> bool:
+        return True
+
+    @override
     def connect(
         self,
         host: str,
