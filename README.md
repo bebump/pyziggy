@@ -4,7 +4,7 @@
 
 ---
 
-Pyziggy is a code generator and runtime framework for creating [Zigbee2MQTT](https://www.zigbee2mqtt.io) automation projects without any boilerplate, such as remembering device and parameter names, and having to correctly cite them as strings. This information is already available through Zigbee2MQTT, so it can be encoded in class hierarchies and the type system.
+Pyziggy is a code generator and runtime framework for creating [Zigbee2MQTT](https://www.zigbee2mqtt.io) automation projects, without jumping through hoops, like having to remember device or parameter names, and citing them correctly as strings. This information is already available through Zigbee2MQTT, so it can be encoded in class hierarchies and the type system.
 
 Pyziggy automatically generates a typed package in your project directory containing information about devices and parameters that Zigbee2MQTT knows about. Your automation project can import this package, and use simple setters and getters on Python objects to effect changes in your Zigbee network. Upon restart, the device package is regenerated and the correctness of your project is checked with mypy.
  
