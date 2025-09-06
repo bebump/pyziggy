@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
+from pathlib import Path
 from typing import override, Dict, Any, Tuple
 
 from . import MessageEvent
@@ -120,9 +121,12 @@ class PlaybackMqttClientImpl(MqttClientImpl):
         host: str,
         port: int,
         keepalive: int,
-        use_tls: bool = False,
         username: str | None = None,
         password: str | None = None,
+        ca_crt: Path | None = None,
+        client_crt: Path | None = None,
+        client_key: Path | None = None,
+        check_server_crt: bool = False,
     ):
         pass
 

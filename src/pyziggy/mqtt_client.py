@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import logging
 from abc import abstractmethod
+from pathlib import Path
+from ssl import SSLCertVerificationError
 from typing import Dict, Any, final, Optional, override
 
 import paho.mqtt.client as mqtt
@@ -80,9 +82,12 @@ class MqttClientImpl:
         host: str,
         port: int,
         keepalive: int,
-        use_tls: bool = False,
         username: str | None = None,
         password: str | None = None,
+        ca_crt: Path | None = None,
+        client_crt: Path | None = None,
+        client_key: Path | None = None,
+        check_server_crt: bool = False,
     ):
         pass
 
@@ -126,27 +131,63 @@ class PahoMqttClientImpl(MqttClientImpl):
         host: str,
         port: int,
         keepalive: int,
-        use_tls: bool = False,
         username: str | None = None,
         password: str | None = None,
+        ca_crt: Path | None = None,
+        client_crt: Path | None = None,
+        client_key: Path | None = None,
+        check_server_crt: bool = False,
     ):
-        if use_tls:
-            self._mqttc.tls_set()
-            self._mqttc.tls_insecure_set(True)
+        use_tls = ca_crt is not None or client_crt is not None or client_key is not None
 
-        if username is not None and password is not None:
+        if use_tls:
+            args = {}
+
+            if ca_crt is not None:
+                args["ca_certs"] = str(ca_crt)
+
+            if client_crt is not None:
+                args["certfile"] = str(client_crt)
+
+            if client_key is not None:
+                args["keyfile"] = str(client_key)
+
+            self._mqttc.tls_set(**args)  # type: ignore
+            self._mqttc.tls_insecure_set(not check_server_crt)
+
+            if not check_server_crt:
+                print(
+                    "[WARNING] Using SSL/TLS with disabled server certificate validation."
+                    " The identity of the server cannot be verified. See the"
+                    ' "check_server_crt" option in the configuration file.'
+                )
+
+        if username is not None:
             self._mqttc.username_pw_set(username, password)
 
         try:
             self._mqttc.connect(host, port, keepalive)
+            return
         except TimeoutError as e:
-            logger.error(f"Failed to connect to MQTT broker with timeout error: {e}")
-            exit(1)
-        except ConnectionRefusedError as e:
-            logger.error(
-                f"Failed to connect to MQTT broker with connection refused error: {e}"
+            print(
+                f"[ERROR] The MQTT server connection attempt timed out. Exception message: {e}"
             )
-            exit(1)
+        except ConnectionRefusedError as e:
+            print(
+                f"[ERROR] Failed to connect to MQTT server with connection refused error: {e}"
+            )
+        except SSLCertVerificationError as e:
+            print(
+                f"[ERROR] The MQTT server failed the certificate check against"
+                f' "{ca_crt}". The identity of the MQTT server cannot be'
+                f" verified. Exception message: {e}"
+            )
+        except OSError as e:
+            print(
+                f"[ERROR] The MQTT server connection attempt failed. Exception message: {e}"
+            )
+
+        exit(1)
 
     @override
     def was_on_connect_called(self) -> bool:
@@ -187,7 +228,13 @@ class PahoMqttClientImpl(MqttClientImpl):
             )
 
         message_loop.post_message(callback)
-        self._on_connect_was_called = True
+
+        if reason_code.value == 0:
+            self._on_connect_was_called = True
+            return
+
+        print(f"[ERROR] MQTT connection failure: {reason_code}")
+        message_loop.stop(1)
 
     def _on_message(self, client, userdata, msg):
         def callback():
@@ -226,16 +273,28 @@ class MqttClient:
         port: int,
         keepalive: int,
         base_topic: str,
-        use_tls: bool = False,
         username: str | None = None,
         password: str | None = None,
+        ca_crt: Path | None = None,
+        client_crt: Path | None = None,
+        client_key: Path | None = None,
+        check_server_crt: bool = False,
     ):
         self._base_topic = base_topic
-
-        self._impl.connect(host, port, keepalive, use_tls, username, password)
+        self._impl.connect(
+            host,
+            port,
+            keepalive,
+            username,
+            password,
+            ca_crt,
+            client_crt,
+            client_key,
+            check_server_crt,
+        )
 
     @final
-    def _loop_forever(self):
+    def _loop_forever(self) -> int:
         """
         Starts the message loop. This function only returns after the message loop has been terminated.
 
@@ -244,7 +303,7 @@ class MqttClient:
         from pyziggy.message_loop import message_loop
         message_loop.stop()
         """
-        self._impl.loop_forever()
+        return self._impl.loop_forever()
 
     def _on_connect(self, reason_code):
         for key, member in vars(self).items():

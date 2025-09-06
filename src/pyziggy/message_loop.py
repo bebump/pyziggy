@@ -150,7 +150,9 @@ class MessageLoop(metaclass=_Singleton):
         termination of the program. This allows communicating MQTT messages that
         originate from the same call stack as this call.
         """
-        self._stop_timer = MessageLoopTimer(lambda timer: message_loop.stop(return_code))
+        self._stop_timer = MessageLoopTimer(
+            lambda timer: message_loop.stop(return_code)
+        )
         self._stop_timer.start(1)
 
     def post_message(self, message: Callable[[], None]) -> None:

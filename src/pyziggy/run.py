@@ -54,17 +54,23 @@ class PyziggyConfig:
         base_topic: str,
         username: str | None,
         password: str | None,
-        use_tls: bool,
+        ca_crt: Path | None,
+        client_crt: Path | None,
+        client_key: Path | None,
+        check_server_crt: bool,
         flask_port: int,
     ):
         self.host = host
         self.port = port
         self.keepalive = keepalive
         self.base_topic = base_topic
-        self.flask_port = flask_port
         self.username = username
         self.password = password
-        self.use_tls = use_tls
+        self.ca_crt = ca_crt
+        self.client_crt = client_crt
+        self.client_key = client_key
+        self.check_server_crt = check_server_crt
+        self.flask_port = flask_port
 
     def write(self, config_file: Path) -> None:
         """
@@ -82,7 +88,14 @@ class PyziggyConfig:
                         "base_topic": self.base_topic,
                         "user": self.username,
                         "password": self.password,
-                        "use_tls": self.use_tls,
+                        "ca_crt": str(self.ca_crt) if self.ca_crt is not None else "",
+                        "client_crt": (
+                            str(self.client_crt) if self.client_crt is not None else ""
+                        ),
+                        "client_key": (
+                            str(self.client_key) if self.client_key is not None else ""
+                        ),
+                        "check_server_crt": self.check_server_crt,
                     },
                     "flask": {
                         "flask_port": self.flask_port,
@@ -92,7 +105,7 @@ class PyziggyConfig:
             )
 
     @staticmethod
-    def load(config_file: Path | str) -> PyziggyConfig | None:
+    def load(config_file: Path) -> PyziggyConfig | None:
         """
         Loads the specified configuration file, checks its correctness and returns a
         :class:`PyziggyConfig` object if it passes all checks. Returns None otherwise.
@@ -100,6 +113,22 @@ class PyziggyConfig:
         This function is used by ``pyziggy run`` to load and parse the ``config.toml``
         file in the current automation project directory.
         """
+
+        def resolve_path(p: Path | str) -> Path:
+            path = Path(p).expanduser()
+
+            if path.is_absolute():
+                if not path.exists():
+                    raise FileNotFoundError(f"File not found: {path}")
+
+                return path
+
+            path = (config_file.parent / p).resolve()
+
+            if not path.exists():
+                raise FileNotFoundError(f"File not found: {path}")
+
+            return path
 
         try:
             config = toml.load(config_file)
@@ -109,26 +138,65 @@ class PyziggyConfig:
             if "flask" in config.keys() and "flask_port" in config["flask"].keys():
                 flask_port = config["flask"]["flask_port"]
 
-            return PyziggyConfig(
+            pyziggy_config = PyziggyConfig(
                 config["mqtt_server"]["host"],
                 config["mqtt_server"]["port"],
                 config["mqtt_server"]["keepalive"],
                 config["mqtt_server"]["base_topic"],
                 (
                     config["mqtt_server"]["user"]
-                    if "user" in config["mqtt_server"]
+                    if "user" in config["mqtt_server"] and config["mqtt_server"]["user"]
                     else None
                 ),
                 (
                     config["mqtt_server"]["password"]
                     if "password" in config["mqtt_server"]
+                    and config["mqtt_server"]["user"]
                     else None
                 ),
-                config["mqtt_server"]["use_tls"],
+                (
+                    resolve_path(config["mqtt_server"]["ca_crt"])
+                    if "ca_crt" in config["mqtt_server"]
+                    and config["mqtt_server"]["ca_crt"]
+                    else None
+                ),
+                (
+                    resolve_path(config["mqtt_server"]["client_crt"])
+                    if "client_crt" in config["mqtt_server"]
+                    and config["mqtt_server"]["client_crt"]
+                    else None
+                ),
+                (
+                    resolve_path(config["mqtt_server"]["client_key"])
+                    if "client_key" in config["mqtt_server"]
+                    and config["mqtt_server"]["client_key"]
+                    else None
+                ),
+                (
+                    config["mqtt_server"]["check_server_crt"]
+                    if "check_server_crt" in config["mqtt_server"]
+                    else True
+                ),
                 flask_port,
             )
 
-        except:
+            ssl_params = [
+                pyziggy_config.ca_crt,
+                pyziggy_config.client_crt,
+                pyziggy_config.client_key,
+            ]
+
+            if any(ssl_params) and not all(ssl_params):
+                print(
+                    f'[ERROR] Invalid configuration in "{config_file.resolve()}".'
+                    f" If any of ca_crt, client_crt or client_key is set, all of them must be set."
+                )
+                return None
+
+            return pyziggy_config
+
+        except FileNotFoundError as e:
+            print(f"[ERROR] {e}")
             return None
 
     @staticmethod
@@ -138,7 +206,17 @@ class PyziggyConfig:
         """
 
         return PyziggyConfig(
-            "192.168.1.56", 1883, 60, "zigbee2mqtt", None, None, False, 5001
+            "192.168.1.56",
+            1883,
+            60,
+            "zigbee2mqtt",
+            None,
+            None,
+            None,
+            None,
+            None,
+            False,
+            5001,
         )
 
     @staticmethod
@@ -154,14 +232,22 @@ host = "192.168.1.56"
 port = 1883
 keepalive = 60
 base_topic = "zigbee2mqtt"
-use_tls = false
 
 # If your MQTT server requires a username and password, you can provide them by
-# uncommenting and setting the below values. In this case you probably need to
-# enable the use_tls setting as well.
-#
-# user = "your_username"
-# password = "your_password"
+# uncommenting and setting the values below.
+# ------------------------------------------------------------------------------
+#user = ""
+#password = ""
+
+# If your MQTT server requires SSL/TLS verification, you can provide the
+# relevant information by uncommenting and setting the values below. Use either
+# absolute, or project directory relative paths. Using ~ is considered an
+# absolute path.
+# ------------------------------------------------------------------------------
+#ca_crt = ""
+#client_crt = ""
+#client_key = ""
+#check_server_crt = true
 
 [flask]
 flask_port = 5001
@@ -170,7 +256,9 @@ flask_port = 5001
             f.write(default_config)
 
 
-def _regenerate_device_definitions(available_devices_path: Path, config: PyziggyConfig):
+def _regenerate_device_definitions(
+    available_devices_path: Path, config: PyziggyConfig
+) -> int:
     from .generator import DevicesGenerator
 
     generator = DevicesGenerator(available_devices_path)
@@ -179,16 +267,19 @@ def _regenerate_device_definitions(available_devices_path: Path, config: Pyziggy
         config.port,
         config.keepalive,
         config.base_topic,
-        config.use_tls,
         config.username,
         config.password,
+        config.ca_crt,
+        config.client_crt,
+        config.client_key,
+        config.check_server_crt,
     )
 
     # The generator quits on its own when its job is finished
-    generator._loop_forever()
+    return generator._loop_forever()
 
 
-def _regenerate_available_devices(project_root: Path, config: PyziggyConfig):
+def _regenerate_available_devices(project_root: Path, config: PyziggyConfig) -> int:
     autogenerate_dir = project_root / "pyziggy_autogenerate"
 
     if autogenerate_dir.exists():
@@ -203,7 +294,7 @@ def _regenerate_available_devices(project_root: Path, config: PyziggyConfig):
     available_devices_path = autogenerate_dir / "available_devices.py"
 
     print(f"Regenerating device definitions in {available_devices_path.absolute()}...")
-    _regenerate_device_definitions(available_devices_path, config)
+    return _regenerate_device_definitions(available_devices_path, config)
 
 
 def _run_mypy(
@@ -319,7 +410,12 @@ def _pre_run_check(
     devices_client_module_path = _get_devices_client_module_path(devices_client_param)
 
     if devices_client_module_path is not None:
-        _regenerate_available_devices(devices_client_module_path.parent, config)
+        return_code = _regenerate_available_devices(
+            devices_client_module_path.parent, config
+        )
+
+        if return_code != 0:
+            exit(return_code)
 
         if not no_mypy:
             if _run_mypy(devices_client_module_path) == False:

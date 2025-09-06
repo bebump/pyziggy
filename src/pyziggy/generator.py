@@ -802,11 +802,12 @@ class DevicesGenerator(MqttClient):
     def _timeout_callback(self):
         if not self._impl.was_on_connect_called():
             print(
-                f"Failed to set up MQTT connection. MQTT server responds, but"
-                f" on_connect was never called. Maybe misconfigured SSL/TLS settings?"
+                f"[ERROR] Failed to connect to MQTT server. Server responds, but"
+                f" on_connect() was never called. Maybe misconfigured SSL/TLS settings?"
             )
         else:
             print(
-                f'Failed to acquire "bridge/devices" message in time. This can happen'
+                f"[ERROR] MQTT connection was successful, but failed to acquire"
+                f' "bridge/devices" message in time. This can happen'
                 f" if MQTT was started after Zigbee2MQTT. Maybe restart Zigbee2MQTT?"
             )

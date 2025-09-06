@@ -53,7 +53,7 @@ def _run_cmd(args, pre_run_check_only=False):
     config = PyziggyConfig.load(config_file)
 
     if config is None:
-        print(f"Failed to load config file: {config_file.absolute()}")
+        print(f"[ERROR] Failed to load config file: {config_file.absolute()}")
         exit(1)
 
     devices_client_module_path = Path(args.devices_client_file)
