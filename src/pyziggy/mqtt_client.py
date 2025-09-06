@@ -254,7 +254,16 @@ class PahoMqttClientImpl(MqttClientImpl):
         if self._on_message_callback is None:
             return
 
-        self._on_message_callback(msg.topic, json.loads(msg.payload))
+        payload = {}
+
+        try:
+            payload = json.loads(msg.payload)
+        except:
+            logger.warning(
+                f'MQTT message payload is invalid JSON on topic "{msg.topic}": "{msg.payload}"'
+            )
+
+        self._on_message_callback(msg.topic, payload)
 
 
 class MqttClient:
