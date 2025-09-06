@@ -92,7 +92,7 @@ check_and_try_setup_python() {
 
     if [ ! -f "$SELF_DIR/requirements.txt" ]; then
         echo "[pyziggy-setup] Adding requirements.txt"
-        echo "pyziggy==0.9.2" > "$SELF_DIR/requirements.txt"
+        echo "pyziggy==0.9.3" > "$SELF_DIR/requirements.txt"
     fi
 
     if [ ! -f "$SELF_DIR/.gitignore" ]; then
