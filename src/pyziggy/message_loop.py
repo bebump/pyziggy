@@ -314,7 +314,6 @@ class MessageLoopTimer:
     """
 
     _running_timers: list[MessageLoopTimer] = []
-    _stopped_timers: list[MessageLoopTimer] = []
     _last_advance_time = time_source.perf_counter()
     _timer = Timer(1, lambda: MessageLoopTimer._timer_thread_callback())
     _async_callback = AsyncCallback(
