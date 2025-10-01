@@ -1,0 +1,15 @@
+#!/bin/bash
+
+SELF_DIR="$(cd "$(dirname "$0")"; pwd)"
+VENV_PYTHON="$SELF_DIR/.venv/bin/python"
+
+source "$SELF_DIR/.venv/bin/activate"
+
+pushd "$SELF_DIR/docs"
+make clean
+make markdown
+popd
+
+deactivate
+
+"$VENV_PYTHON" "$SELF_DIR/util/concatenate_sphinx_docs.py" > GEMINI.md
