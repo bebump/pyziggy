@@ -355,6 +355,32 @@ class ScaleMapper:
             new_value = ScaleMapper._get_value_for_scale(adjustable, scale_value)
             adjustable[0].set_normalized(new_value)
 
+    def set(self, value: float) -> None:
+        """
+        Sets the :class:`ScaleMapper` meta-parameter to the specified value.
+
+        The resulting value will be clamped to the permitted range.
+        """
+        scale_value = clamp(value, 0, 1)
+
+        for adjustable in self._adjustables:
+            new_value = ScaleMapper._get_value_for_scale(adjustable, scale_value)
+            adjustable[0].set_normalized(new_value)
+
+    def get(self) -> float:
+        """
+        Returns the current value of the :class:`ScaleMapper` meta-parameter.
+        """
+        values_on_scale = [
+            ScaleMapper._get_value_on_scale(adjustable, -0.01)
+            for adjustable in self._adjustables
+        ]
+
+        if not values_on_scale:
+            return 0
+
+        return max(values_on_scale)
+
 
 class RunThenExit:
     def __init__(self, devices: DevicesClient, callback: Callable[[], Any]):
