@@ -158,7 +158,7 @@ class NumericParameter(ParameterBase):
         """
         :return: The upper limit (inclusive) of this parameter's permitted range.
         """
-        return self._min_value
+        return self._max_value
 
     def set_call_listeners_synchronously(self, value: bool) -> None:
         """
